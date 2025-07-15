@@ -1,0 +1,64 @@
+
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <title>الحسابات - أبابيل</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body { font-family: 'Cairo', sans-serif; background: #f4f4f4; margin: 0; }
+    nav { background: #711739; padding: 15px; }
+    nav a { color: #fff; margin-left: 20px; text-decoration: none; font-weight: bold; }
+    .container { padding: 30px; }
+    h1 { color: #711739; }
+    table { width: 100%; border-collapse: collapse; margin-top: 20px; background: white; }
+    th, td { border: 1px solid #ccc; padding: 10px; text-align: center; }
+    th { background: #711739; color: #fff; }
+    input, select, button { padding: 8px; margin-top: 10px; width: 100%; }
+    button { background: #711739; color: #fff; border: none; border-radius: 5px; }
+  </style>
+</head>
+<body>
+<nav>
+  <a href="dashboard.html">الرئيسية</a>
+  <a href="containers.html">الحاويات</a>
+  <a href="clients.html">العملاء</a>
+  <a href="cashbox.php">الخزنة</a>
+  <a href="users.html">الموظفين</a>
+  <a href="login.html">تسجيل الخروج</a>
+</nav>
+<div class="container">
+  <h1>الحسابات</h1>
+  
+<form id="accountForm">
+  <input type="text" id="desc" placeholder="الوصف" required>
+  <input type="number" id="amount" placeholder="المبلغ" required>
+  <select id="type"><option>إيراد</option><option>مصروف</option></select>
+  <button type="submit">إضافة</button>
+</form>
+<table><thead><tr><th>رقم</th><th>الوصف</th><th>المبلغ</th><th>النوع</th><th>حذف</th></tr></thead><tbody></tbody></table>
+<script>
+let records = [];
+document.getElementById("accountForm").onsubmit = function(e){
+  e.preventDefault();
+  records.push({
+    desc: document.getElementById("desc").value,
+    amount: document.getElementById("amount").value,
+    type: document.getElementById("type").value
+  });
+  display();
+  this.reset();
+};
+function display(){
+  let tbody = document.querySelector("tbody");
+  tbody.innerHTML = "";
+  records.forEach((r, i) => {
+    tbody.innerHTML += `<tr><td>${i+1}</td><td>${r.desc}</td><td>${r.amount}</td><td>${r.type}</td><td><button onclick="remove(${i})">X</button></td></tr>`;
+  });
+}
+function remove(i){ records.splice(i, 1); display(); }
+</script>
+
+</div>
+</body>
+</html>
