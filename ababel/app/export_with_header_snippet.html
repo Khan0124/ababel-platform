@@ -1,0 +1,51 @@
+
+<!-- 🔘 أزرار تصدير كشف الحساب مع ترويسة -->
+<div style="margin: 20px 0;">
+  <button onclick="exportToPDF()">📄 تصدير PDF</button>
+  <button onclick="exportToExcel()">📊 تصدير Excel</button>
+</div>
+
+<!-- jsPDF + html2canvas -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
+<!-- SheetJS -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.5/xlsx.full.min.js"></script>
+
+<script>
+function exportToPDF() {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+
+  const headerText = "شركة أبابيل للتنمية والاستثمار المحدودة\nABABEL FOR DEVELOPMENT AND INVESTMENT CO. LTD";
+  doc.setFont("Helvetica", "bold");
+  doc.setFontSize(14);
+  doc.text(headerText, 105, 15, { align: "center" });
+
+  const table = document.querySelector(".box table");
+  html2canvas(table).then(canvas => {
+    const imgData = canvas.toDataURL("image/png");
+    const pdfWidth = doc.internal.pageSize.getWidth();
+    const imgProps = doc.getImageProperties(imgData);
+    const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+
+    doc.addImage(imgData, "PNG", 10, 30, pdfWidth - 20, pdfHeight);
+    doc.save("كشف_الحساب.pdf");
+  });
+}
+
+function exportToExcel() {
+  const table = document.querySelector(".box table").cloneNode(true);
+
+  // إضافة صف الترويسة يدويًا
+  const headerRow = table.insertRow(0);
+  const cell = headerRow.insertCell(0);
+  cell.colSpan = table.rows[1].cells.length;
+  cell.innerHTML = "شركة أبابيل للتنمية والاستثمار المحدودة | ABABEL FOR DEVELOPMENT AND INVESTMENT CO. LTD";
+  cell.style.textAlign = "center";
+  cell.style.fontWeight = "bold";
+
+  const wb = XLSX.utils.table_to_book(table, { sheet: "كشف الحساب" });
+  XLSX.writeFile(wb, "كشف_الحساب.xlsx");
+}
+</script>
