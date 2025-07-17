@@ -1,6 +1,0 @@
-
-ALTER TABLE transactions 
-ADD COLUMN method VARCHAR(20),
-ADD COLUMN amount_usd DECIMAL(10,2),
-ADD COLUMN exchange_rate DECIMAL(10,2),
-ADD COLUMN proof VARCHAR(255);
