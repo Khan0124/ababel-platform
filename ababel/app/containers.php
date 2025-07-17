@@ -5,6 +5,22 @@ error_reporting(E_ALL);
 include 'auth.php';
 include 'config.php';
 
+// Handle marking containers as seen (for China-originated containers)
+if (isset($_POST['mark_seen']) && $_SESSION['office'] === 'بورتسودان') {
+    $containerId = intval($_POST['container_id']);
+    $conn->query("UPDATE containers SET seen_by_port = 1 WHERE id = $containerId AND china_loading_id IS NOT NULL");
+}
+
+// Check for new containers from China
+$newChinaContainers = 0;
+if ($_SESSION['office'] === 'بورتسودان') {
+    $newQuery = $conn->query("SELECT COUNT(*) as count FROM containers WHERE china_loading_id IS NOT NULL AND seen_by_port = 0");
+    if ($newQuery) {
+        $newCount = $newQuery->fetch_assoc();
+        $newChinaContainers = intval($newCount['count']);
+    }
+}
+
 // Get delayed containers with all status checks including operational status dates
 $delayed_containers = [];
 $delayed_query = $conn->query("
@@ -129,7 +145,9 @@ $fields = [
     'release_status' => 'تم الإفراج',
     'company_release' => 'تم الإفراج من الشركة',
     'bill_of_lading_status' => 'حالة البوليصة',
-    'tashitim_status' => 'حالة التختيم'
+    'tashitim_status' => 'حالة التختيم',
+    'loading_no' => 'رقم التحميل',
+    'office' => 'المكتب المصدر'
 ];
 
 // Get filters, sorting, and pagination from URL with defaults
@@ -146,6 +164,8 @@ $filters = [
     'value5' => $_GET['value5'] ?? '',
     'from' => $_GET['from'] ?? '',
     'to' => $_GET['to'] ?? '',
+    'source' => $_GET['source'] ?? '',
+    'new_only' => isset($_GET['new_only']) ? '1' : ''
 ];
 
 // Column sorting
@@ -173,6 +193,8 @@ function getOptions($field, $conn) {
             return ['not_issued' => 'لم يتم الإصدار', 'issued' => 'تم الإصدار', 'delayed' => 'متأخر'];
         } elseif ($field === 'tashitim_status') {
             return ['not_done' => 'لم يتم التختيم', 'done' => 'تم التختيم', 'delayed' => 'متأخر'];
+        } elseif ($field === 'office') {
+            return ['الصين' => 'الصين', 'محلي' => 'محلي'];
         }
         
         $stmt = $conn->prepare("SELECT DISTINCT `$field` as val FROM containers ORDER BY `$field` ASC");
@@ -219,6 +241,18 @@ if ($filters['from'] && $filters['to']) {
     $types .= "s";
 }
 
+// Filter by source (China or Local)
+if ($filters['source'] === 'china') {
+    $whereClauses[] = "china_loading_id IS NOT NULL";
+} elseif ($filters['source'] === 'local') {
+    $whereClauses[] = "china_loading_id IS NULL";
+}
+
+// Show only new containers from China
+if ($filters['new_only'] === '1' && $_SESSION['office'] === 'بورتسودان') {
+    $whereClauses[] = "china_loading_id IS NOT NULL AND seen_by_port = 0";
+}
+
 $whereSql = "1";
 if (count($whereClauses) > 0) {
     $whereSql = implode(" AND ", $whereClauses);
@@ -239,8 +273,10 @@ if ($countStmt) {
     die("خطأ في الاستعلام (عدد النتائج): " . $conn->error);
 }
 
-// Query data with sorting and pagination
-$sql = "SELECT containers.*, registers.name AS registry_name, 
+// Query data with sorting and pagination - Modified to include China sync fields
+$sql = "SELECT containers.*, registers.name AS registry_name,
+               COALESCE(containers.loading_no, containers.loading_number) AS display_loading_no,
+               CASE WHEN china_loading_id IS NOT NULL THEN 'الصين' ELSE 'محلي' END as source_office,
                (SELECT status FROM container_position_history 
                 WHERE container_id = containers.id 
                 ORDER BY created_at DESC 
@@ -248,7 +284,9 @@ $sql = "SELECT containers.*, registers.name AS registry_name,
         FROM containers 
         LEFT JOIN registers ON containers.registry = registers.id 
         WHERE $whereSql 
-        ORDER BY `$order_by` $order_dir 
+        ORDER BY 
+            CASE WHEN china_loading_id IS NOT NULL AND seen_by_port = 0 THEN 0 ELSE 1 END,
+            `$order_by` $order_dir 
         LIMIT ? OFFSET ?";
 
 $stmt = $conn->prepare($sql);
@@ -438,6 +476,36 @@ function translatePositionStatus($status) {
             background-color: #f8d7da !important;
         }
         
+        /* China sync specific styles */
+        .china-notification {
+            background-color: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .new-china-container {
+            background-color: #fffbf0;
+            border-right: 4px solid #ffc107;
+        }
+        
+        .china-badge {
+            background-color: #17a2b8 !important;
+            font-size: 0.75rem;
+        }
+        
+        .new-badge {
+            background-color: #ffc107 !important;
+            color: #212529 !important;
+            font-size: 0.75rem;
+            margin-right: 5px;
+        }
+        
         /* Popup Styles matching company branding */
         #delayModal .modal-content {
             border-radius: 10px;
@@ -511,6 +579,19 @@ function translatePositionStatus($status) {
     </style>
 </head>
 <body>
+
+<!-- China Containers Notification -->
+<?php if ($newChinaContainers > 0 && $_SESSION['office'] === 'بورتسودان'): ?>
+<div class="china-notification">
+    <div>
+        <i class="bi bi-bell-fill"></i>
+        <strong>تنبيه:</strong> يوجد <?= $newChinaContainers ?> حاوية جديدة من مكتب الصين لم يتم مراجعتها
+    </div>
+    <a href="?new_only=1" class="btn btn-warning btn-sm">
+        <i class="bi bi-eye"></i> عرض الحاويات الجديدة فقط
+    </a>
+</div>
+<?php endif; ?>
 
 <!-- Delayed Containers Popup -->
 <?php if (!empty($delayed_containers)): ?>
@@ -620,6 +701,14 @@ function translatePositionStatus($status) {
                 <label>إلى تاريخ:</label>
                 <input type="date" name="to" class="form-control" value="<?= $filters['to'] ?>">
             </div>
+            <div class="filter-group">
+                <label>المصدر:</label>
+                <select name="source" class="form-select">
+                    <option value="">-- الكل --</option>
+                    <option value="china" <?= $filters['source'] === 'china' ? 'selected' : '' ?>>من الصين</option>
+                    <option value="local" <?= $filters['source'] === 'local' ? 'selected' : '' ?>>محلي</option>
+                </select>
+            </div>
         </div>
         
         <div class="d-flex gap-2">
@@ -638,7 +727,7 @@ function translatePositionStatus($status) {
                 <th><?= sort_link('تاريخ الدخول', 'entry_date', $order_by, $order_dir, $filters) ?></th>
                 <th><?= sort_link('اسم العميل', 'client_name', $order_by, $order_dir, $filters) ?></th>
                 <th><?= sort_link('رقم العميل', 'code', $order_by, $order_dir, $filters) ?></th>
-                <th>رقم اللودنق</th>
+                <th><?= sort_link('رقم التحميل', 'loading_no', $order_by, $order_dir, $filters) ?></th>
                 <th><?= sort_link('رقم الحاوية', 'container_number', $order_by, $order_dir, $filters) ?></th>
                 <th><?= sort_link('رقم البوليصة', 'bill_number', $order_by, $order_dir, $filters) ?></th>
                 <th><?= sort_link('الصنف', 'category', $order_by, $order_dir, $filters) ?></th>
@@ -648,19 +737,24 @@ function translatePositionStatus($status) {
                 <th><?= sort_link('الباخرة', 'ship_name', $order_by, $order_dir, $filters) ?></th>
                 <th><?= sort_link('المحطة الجمركية', 'custom_station', $order_by, $order_dir, $filters) ?></th>
                 <th>الموقع الحالي</th>
+                <th>المصدر</th>
                 <th>تم الإفراج</th>
                 <th>إفراج الشركة</th>
                 <th>حالة البوليصة</th>
                 <th>حالة التختيم</th>
-                <th>الإجراء</th>
+                <th>الإجراءات</th>
                 <th>تحديث الحالة</th>
             </tr>
         </thead>
         <tbody id="tableBody">
             <?php if ($result->num_rows === 0): ?>
-                <tr><td colspan="20" class="text-center py-4">لا توجد نتائج مطابقة</td></tr>
+                <tr><td colspan="21" class="text-center py-4">لا توجد نتائج مطابقة</td></tr>
             <?php else: ?>
                 <?php $i = $offset + 1; while($r = $result->fetch_assoc()): 
+                    // Check if this is a new container from China
+                    $isNewFromChina = ($r['china_loading_id'] && !$r['seen_by_port'] && $_SESSION['office'] === 'بورتسودان');
+                    $isFromChina = !empty($r['china_loading_id']);
+                    
                     // Calculate status delays for row coloring
                     $is_delayed = false;
                     $is_warning = false;
@@ -694,7 +788,9 @@ function translatePositionStatus($status) {
                     }
                     
                     $row_class = '';
-                    if ($is_delayed) {
+                    if ($isNewFromChina) {
+                        $row_class = 'new-china-container';
+                    } elseif ($is_delayed) {
                         $row_class = 'row-danger';
                     } elseif ($is_warning) {
                         $row_class = 'row-warning';
@@ -703,9 +799,14 @@ function translatePositionStatus($status) {
                     <tr class="<?= $row_class ?>">
                         <td><?= $i++ ?></td>
                         <td><?= displayValue('entry_date', $r['entry_date']) ?></td>
-                        <td><?= displayValue('client_name', $r['client_name']) ?></td>
+                        <td>
+                            <?= displayValue('client_name', $r['client_name']) ?>
+                            <?php if ($isNewFromChina): ?>
+                                <span class="badge new-badge">جديد</span>
+                            <?php endif; ?>
+                        </td>
                         <td><?= displayValue('code', $r['code']) ?></td>
-                        <td><?= displayValue('loading_number', $r['loading_number']) ?></td>
+                        <td><?= displayValue('loading_no', $r['display_loading_no']) ?></td>
                         <td><?= displayValue('container_number', $r['container_number']) ?></td>
                         <td><?= displayValue('bill_number', $r['bill_number']) ?></td>
                         <td><?= displayValue('category', $r['category']) ?></td>
@@ -715,14 +816,35 @@ function translatePositionStatus($status) {
                         <td><?= displayValue('ship_name', $r['ship_name']) ?></td>
                         <td><?= displayValue('custom_station', $r['custom_station']) ?></td>
                         <td><?= !empty($r['latest_position']) ? translatePositionStatus($r['latest_position']) : 'غير متوفر' ?></td>
+                        <td>
+                            <?php if ($isFromChina): ?>
+                                <span class="badge china-badge"><i class="bi bi-globe"></i> <?= $r['source_office'] ?></span>
+                            <?php else: ?>
+                                <span class="badge bg-secondary">محلي</span>
+                            <?php endif; ?>
+                        </td>
                         <td><?= displayValue('release_status', $r['release_status']) ?></td>
                         <td><?= displayValue('company_release', $r['company_release']) ?></td>
                         <td><?= displayStatus($r['bill_of_lading_status'], 'bill_of_lading') ?></td>
                         <td><?= displayStatus($r['tashitim_status'], 'tashitim') ?></td>
                         <td class="d-flex justify-content-center">
                             <a href="view_container.php?id=<?= $r['id'] ?>" class="btn btn-sm btn-secondary btn-action" title="عرض"><i class="bi bi-eye"></i></a>
-                            <a href="edit_container.php?id=<?= $r['id'] ?>" class="btn btn-sm btn-warning btn-action" title="تعديل"><i class="bi bi-pencil"></i></a>
-                            <a href="delete_container.php?id=<?= $r['id'] ?>" class="btn btn-sm btn-danger btn-action" title="حذف" onclick="return confirm('تأكيد الحذف؟')"><i class="bi bi-trash"></i></a>
+                            <?php if (!$isFromChina): ?>
+                                <a href="edit_container.php?id=<?= $r['id'] ?>" class="btn btn-sm btn-warning btn-action" title="تعديل"><i class="bi bi-pencil"></i></a>
+                                <a href="delete_container.php?id=<?= $r['id'] ?>" class="btn btn-sm btn-danger btn-action" title="حذف" onclick="return confirm('تأكيد الحذف؟')"><i class="bi bi-trash"></i></a>
+                            <?php else: ?>
+                                <button class="btn btn-sm btn-secondary btn-action" disabled title="يجب التعديل من نظام الصين">
+                                    <i class="bi bi-pencil-slash"></i>
+                                </button>
+                            <?php endif; ?>
+                            <?php if ($isNewFromChina): ?>
+                                <form method="POST" style="display: inline;">
+                                    <input type="hidden" name="container_id" value="<?= $r['id'] ?>">
+                                    <button type="submit" name="mark_seen" class="btn btn-sm btn-success btn-action" title="تم المراجعة">
+                                        <i class="bi bi-check-lg"></i>
+                                    </button>
+                                </form>
+                            <?php endif; ?>
                         </td>
                         <td>
                             <a href="update_container_status.php?container_id=<?= $r['id'] ?>" class="btn btn-sm btn-info btn-action" title="تحديث حالة الحاوية">
@@ -742,11 +864,25 @@ function translatePositionStatus($status) {
         <?php
         $total_pages = ceil($total_items / $items_per_page);
         $base_query = $_GET;
+        
+        // Previous page
+        if ($page > 1) {
+            $base_query['page'] = $page - 1;
+            echo '<li class="page-item"><a class="page-link" href="?' . http_build_query($base_query) . '">السابق</a></li>';
+        }
+        
+        // Page numbers
         for ($p = 1; $p <= $total_pages; $p++) {
             $base_query['page'] = $p;
             $page_url = '?' . http_build_query($base_query);
             $active = ($p === $page) ? 'active' : '';
             echo "<li class='page-item $active'><a class='page-link' href='$page_url'>$p</a></li>";
+        }
+        
+        // Next page
+        if ($page < $total_pages) {
+            $base_query['page'] = $page + 1;
+            echo '<li class="page-item"><a class="page-link" href="?' . http_build_query($base_query) . '">التالي</a></li>';
         }
         ?>
     </ul>
@@ -778,6 +914,23 @@ function translatePositionStatus($status) {
             });
         });
     });
+    
+    // Auto-refresh for new containers from China (Port Sudan office only)
+    <?php if ($_SESSION['office'] === 'بورتسودان' && !isset($_GET['new_only'])): ?>
+    setTimeout(function checkNewContainers() {
+        fetch('check_new_containers.php')
+            .then(response => response.json())
+            .then(data => {
+                if (data.new_containers > <?= $newChinaContainers ?>) {
+                    location.reload();
+                }
+            })
+            .catch(error => console.error('Error checking new containers:', error));
+        
+        // Check again after 60 seconds
+        setTimeout(checkNewContainers, 60000);
+    }, 60000); // Initial check after 60 seconds
+    <?php endif; ?>
 </script>
 
 </body>
