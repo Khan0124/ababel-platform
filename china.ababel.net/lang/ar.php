@@ -280,13 +280,38 @@ return [
     'loading_updated' => 'تم تحديث التحميل بنجاح',
     'loading_deleted' => 'تم حذف التحميل بنجاح',
     'duplicate_container' => 'رقم الحاوية مستخدم بالفعل',
+    'loading_number' => 'رقم الشحنة',
+        'enter_loading_number' => 'أدخل رقم الشحنة',
+        'loading_number_hint' => 'معرف فريد لهذه الشحنة',
+        'loading_number_required' => 'رقم الشحنة مطلوب',
+        'auto_generated' => 'يتم إنشاؤه تلقائياً',
+        'claim_auto_generate_hint' => 'سيتم إنشاء رقم المطالبة تلقائياً',
+        'container_repeat_allowed' => 'يمكن تكرار أرقام الحاويات',
+        'auto_filled' => 'يتم ملؤه تلقائياً من رمز العميل',
+        'describe_items' => 'وصف البضائع المشحونة',
+        'additional_notes' => 'أي ملاحظات إضافية أو تعليمات',
+        'financial_auto_record_hint' => 'ستسجل مبالغ الشراء والعمولة والشحن تلقائياً في حساب العميل',
+        'port_sudan_sync' => 'مزامنة بورتسودان',
+        'port_sudan_sync_hint' => 'ستتم مزامنة هذه الشحنة تلقائياً مع نظام بورتسودان وستظهر في containers.php',
+        'create_loading' => 'إنشاء شحنة',
+        'container_format_invalid' => 'تنسيق رقم الحاوية غير صحيح. يجب أن يكون 4 أحرف و 7 أرقام.',
+        'valid_client_required' => 'يرجى اختيار عميل صحيح من القائمة',
+        'bol_updated' => 'تم تحديث حالة بوليصة الشحن بنجاح',
+        'financial_details' => 'التفاصيل المالية',
+        'sync_status' => 'حالة المزامنة',
+        'sync_pending' => 'في انتظار المزامنة',
+        'sync_completed' => 'تمت المزامنة',
+        'sync_failed' => 'فشلت المزامنة',
 ],
 
 'offices' => [
     'main' => 'المكتب الرئيسي',
     'port_sudan' => 'بورتسودان',
     'khartoum' => 'الخرطوم',
-    'kassala' => 'كسلا',
+    'kassala' => 'كسلا', 
+    'uae' => 'الإمارات',
+    'tanzania' => 'تنزانيا',
+    'egypt' => 'مصر',
 ],
 
 'payment' => [
@@ -328,6 +353,16 @@ return [
         'confirm_approval_action' => 'هل أنت متأكد من اعتماد هذه المعاملة؟ لا يمكن التراجع عن هذا الإجراء.',
     ],
     
+    'sync' => [
+        'port_sudan_notification' => 'حاوية جديدة من الصين',
+        'container_synced' => 'تمت مزامنة الحاوية بنجاح',
+        'sync_error' => 'حدث خطأ في المزامنة',
+        'retry_sync' => 'إعادة محاولة المزامنة',
+        'sync_log' => 'سجل المزامنة',
+        'last_sync' => 'آخر مزامنة',
+        'sync_attempts' => 'محاولات المزامنة',
+    ],
+    
     // Validation
     'validation' => [
         'required' => 'هذا الحقل مطلوب',
@@ -340,4 +375,16 @@ return [
         'invalid_password' => 'كلمة المرور الحالية غير صحيحة',
         'transaction_duplicate_bank' => 'رقم المعاملة مستخدم بالفعل لهذا البنك. يرجى التحقق.',
     ],
+    
+    'bol' => [
+        'bill_of_lading' => 'بوليصة الشحن',
+        'bol_status' => 'حالة البوليصة',
+        'bol_date' => 'تاريخ البوليصة',
+        'bol_file' => 'ملف البوليصة',
+        'bol_not_issued' => 'لم تصدر',
+        'bol_issued' => 'صدرت',
+        'bol_delayed' => 'متأخرة',
+        'update_bol' => 'تحديث البوليصة',
+        'issue_bol' => 'إصدار البوليصة',
+    ]
 ];

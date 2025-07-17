@@ -1,0 +1,35 @@
+
+<div class="box">
+  <h3>📊 الرصيد حسب الأقسام</h3>
+  <table>
+    <thead>
+      <tr>
+        <th>القسم</th>
+        <th>إجمالي المطالبات</th>
+        <th>إجمالي المقبوض</th>
+        <th>الرصيد</th>
+      </tr>
+    </thead>
+    <tbody>
+      <?php
+        $sections = ['سجل', 'موانئ', 'أرضيات', 'تختيم'];
+        foreach ($sections as $sec) {
+          $q = $conn->query("SELECT type, SUM(amount) as total FROM transactions WHERE client_id = $client_id AND description = '$sec' GROUP BY type");
+          $debit = 0;
+          $credit = 0;
+          while ($row = $q->fetch_assoc()) {
+            if ($row['type'] === 'مطالبة') $debit = $row['total'];
+            if ($row['type'] === 'قبض') $credit = $row['total'];
+          }
+          $balance = $debit - $credit;
+          echo "<tr>
+                  <td>$sec</td>
+                  <td>" . number_format($debit) . "</td>
+                  <td>" . number_format($credit) . "</td>
+                  <td>" . number_format($balance) . "</td>
+                </tr>";
+        }
+      ?>
+    </tbody>
+  </table>
+</div>

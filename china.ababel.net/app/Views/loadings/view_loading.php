@@ -69,10 +69,6 @@ $shippingRmb = $loading['shipping_usd'] * $usdToRmb;
                             <strong><?= __('loadings.shipping_date') ?>:</strong>
                             <?= date('d/m/Y', strtotime($loading['shipping_date'])) ?>
                         </div>
-                        <div class="col-md-6">
-                            <strong><?= __('loadings.payment_method') ?>:</strong>
-                            <?= $paymentMethods[$loading['payment_method']] ?? $loading['payment_method'] ?>
-                        </div>
                     </div>
                     
                     <div class="row mb-3">
@@ -189,7 +185,7 @@ $shippingRmb = $loading['shipping_usd'] * $usdToRmb;
                             <strong><?= __('created_at') ?>:</strong><br>
                             <?= date('Y-m-d H:i', strtotime($loading['created_at'])) ?>
                         </p>
-                        <?php if ($loading['updated_by_name']): ?>
+                        <?php if ($loading['updated_by']): ?>
                         <p class="mb-0">
                             <strong><?= __('updated_by') ?>:</strong><br>
                             <?= $loading['updated_by_name'] ?><br>

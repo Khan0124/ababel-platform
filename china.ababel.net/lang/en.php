@@ -139,6 +139,7 @@ return [
         'payment_from_client' => 'Payment received from client',
         'transaction_cancelled' => 'Transaction cancelled successfully',
         'amounts' => 'Amounts',
+        
     ],
     
     // Cashbox
@@ -281,6 +282,28 @@ return [
     'loading_updated' => 'Loading updated successfully',
     'loading_deleted' => 'Loading deleted successfully',
     'duplicate_container' => 'Container number already exists',
+    'loading_number' => 'Loading Number',
+        'enter_loading_number' => 'Enter loading number',
+        'loading_number_hint' => 'Unique identifier for this loading',
+        'loading_number_required' => 'Loading number is required',
+        'auto_generated' => 'Auto Generated',
+        'claim_auto_generate_hint' => 'Claim number will be generated automatically',
+        'container_repeat_allowed' => 'Container numbers can be repeated',
+        'auto_filled' => 'Auto filled from client code',
+        'describe_items' => 'Describe the items being shipped',
+        'additional_notes' => 'Any additional notes or instructions',
+        'financial_auto_record_hint' => 'Purchase, commission, and shipping amounts will be automatically recorded in the client\'s account',
+        'port_sudan_sync' => 'Port Sudan Synchronization',
+        'port_sudan_sync_hint' => 'This loading will be automatically synchronized with the Port Sudan system and appear in containers.php',
+        'create_loading' => 'Create Loading',
+        'container_format_invalid' => 'Container number format is invalid. Must be 4 letters followed by 7 numbers.',
+        'valid_client_required' => 'Please select a valid client from the list',
+        'bol_updated' => 'Bill of Lading status updated successfully',
+        'financial_details' => 'Financial Details',
+        'sync_status' => 'Sync Status',
+        'sync_pending' => 'Sync Pending',
+        'sync_completed' => 'Sync Completed',
+        'sync_failed' => 'Sync Failed',
 ],
 
 'offices' => [
@@ -288,6 +311,9 @@ return [
     'port_sudan' => 'Port Sudan',
     'khartoum' => 'Khartoum',
     'kassala' => 'Kassala',
+    'uae' => 'UAE',
+    'tanzania' => 'Tanzania', 
+    'egypt' => 'Egypt',
 ],
 
 'payment' => [
@@ -344,4 +370,24 @@ return [
         'invalid_password' => 'Current password is incorrect',
         'transaction_duplicate_bank' => 'Transaction number already used for this bank. Please verify.',
     ],
+    'sync' => [
+        'port_sudan_notification' => 'New container from China',
+        'container_synced' => 'Container synchronized successfully',
+        'sync_error' => 'Synchronization error occurred',
+        'retry_sync' => 'Retry Synchronization',
+        'sync_log' => 'Sync Log',
+        'last_sync' => 'Last Sync',
+        'sync_attempts' => 'Sync Attempts',
+    ],
+    'bol' => [
+        'bill_of_lading' => 'Bill of Lading',
+        'bol_status' => 'BOL Status',
+        'bol_date' => 'BOL Date',
+        'bol_file' => 'BOL File',
+        'bol_not_issued' => 'Not Issued',
+        'bol_issued' => 'Issued',
+        'bol_delayed' => 'Delayed',
+        'update_bol' => 'Update BOL',
+        'issue_bol' => 'Issue BOL',
+    ]
 ];

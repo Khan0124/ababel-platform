@@ -15,20 +15,12 @@ foreach ($rates as $rate) {
     $exchangeRates[$rate['setting_key']] = $rate['setting_value'];
 }
 
-// Office list
+// Updated office list - removed unsupported offices for now
 $offices = [
-    'main' => __('offices.main'),
     'port_sudan' => __('offices.port_sudan'),
-    'khartoum' => __('offices.khartoum'),
-    'kassala' => __('offices.kassala'),
-];
-
-// Payment methods
-$paymentMethods = [
-    'cash' => __('payment.cash'),
-    'transfer' => __('payment.transfer'),
-    'check' => __('payment.check'),
-    'credit' => __('payment.credit'),
+    'uae' => 'UAE Office',
+    'tanzania' => 'Tanzania Office', 
+    'egypt' => 'Egypt Office',
 ];
 ?>
 
@@ -77,15 +69,16 @@ $paymentMethods = [
                             </div>
                             
                             <div class="col-md-3">
-                                <label for="payment_method" class="form-label">
-                                    <?= __('loadings.payment_method') ?> <span class="text-danger">*</span>
+                                <label for="loading_no" class="form-label">
+                                    Loading Number <span class="text-danger">*</span>
                                 </label>
-                                <select class="form-select" id="payment_method" name="payment_method" required>
-                                    <option value=""><?= __('select') ?>...</option>
-                                    <?php foreach ($paymentMethods as $key => $method): ?>
-                                        <option value="<?= $key ?>"><?= $method ?></option>
-                                    <?php endforeach; ?>
-                                </select>
+                                <input type="text" 
+                                       class="form-control" 
+                                       id="loading_no" 
+                                       name="loading_no" 
+                                       placeholder="Enter loading number"
+                                       required>
+                                <small class="text-muted">Unique identifier for this loading</small>
                             </div>
                             
                             <div class="col-md-3">
@@ -96,7 +89,10 @@ $paymentMethods = [
                                        class="form-control" 
                                        id="claim_number" 
                                        name="claim_number" 
-                                       placeholder="<?= __('loadings.internal_reference') ?>">
+                                       placeholder="Auto Generated"
+                                       readonly
+                                       disabled>
+                                <small class="text-muted">Will be generated automatically</small>
                             </div>
                             
                             <div class="col-md-3">
@@ -112,6 +108,7 @@ $paymentMethods = [
                                        title="<?= __('loadings.container_format') ?>"
                                        required>
                                 <small class="text-muted"><?= __('loadings.container_format_hint') ?></small>
+                                <small class="text-info d-block">Container numbers can now be repeated</small>
                             </div>
                         </div>
                         
@@ -143,9 +140,8 @@ $paymentMethods = [
                                        class="form-control" 
                                        id="client_name" 
                                        name="client_name" 
+                                       placeholder="Auto filled from client code"
                                        readonly>
-                                <input type="hidden" id="client_id" name="client_id">
-                                <div id="client-info" class="mt-1 small text-muted"></div>
                             </div>
                             
                             <div class="col-md-4">
@@ -156,142 +152,101 @@ $paymentMethods = [
                                        class="form-control" 
                                        id="item_description" 
                                        name="item_description" 
-                                       placeholder="<?= __('loadings.cargo_type') ?>">
+                                       placeholder="Describe the items being shipped">
                             </div>
                         </div>
                         
-                        <!-- Row 3: Financial Information -->
-                        <div class="card mb-3">
-                            <div class="card-header bg-light">
-                                <h6 class="mb-0"><?= __('loadings.financial_details') ?></h6>
+                        <!-- Row 3: Cargo Details -->
+                        <div class="row mb-3">
+                            <div class="col-md-2">
+                                <label for="cartons_count" class="form-label">
+                                    <?= __('loadings.cartons_count') ?> <span class="text-danger">*</span>
+                                </label>
+                                <input type="number" 
+                                       class="form-control" 
+                                       id="cartons_count" 
+                                       name="cartons_count" 
+                                       min="1"
+                                       required>
                             </div>
-                            <div class="card-body">
-                                <div class="row">
-                                    <div class="col-md-3">
-                                        <label for="cartons_count" class="form-label">
-                                            <?= __('loadings.cartons_count') ?>
-                                        </label>
-                                        <input type="number" 
-                                               class="form-control" 
-                                               id="cartons_count" 
-                                               name="cartons_count" 
-                                               min="0"
-                                               value="0">
-                                    </div>
-                                    
-                                    <div class="col-md-3">
-                                        <label for="purchase_amount" class="form-label">
-                                            <?= __('loadings.purchase') ?> (¥)
-                                        </label>
-                                        <div class="input-group">
-                                            <span class="input-group-text">¥</span>
-                                            <input type="number" 
-                                                   class="form-control calculate-total" 
-                                                   id="purchase_amount" 
-                                                   name="purchase_amount" 
-                                                   step="0.01" 
-                                                   min="0"
-                                                   value="0">
-                                        </div>
-                                    </div>
-                                    
-                                    <div class="col-md-3">
-                                        <label for="commission_amount" class="form-label">
-                                            <?= __('loadings.commission') ?> (¥)
-                                        </label>
-                                        <div class="input-group">
-                                            <span class="input-group-text">¥</span>
-                                            <input type="number" 
-                                                   class="form-control calculate-total" 
-                                                   id="commission_amount" 
-                                                   name="commission_amount" 
-                                                   step="0.01" 
-                                                   min="0"
-                                                   value="0">
-                                        </div>
-                                    </div>
-                                    
-                                    <div class="col-md-3">
-                                        <label for="total_amount" class="form-label">
-                                            <?= __('loadings.total') ?> (¥)
-                                        </label>
-                                        <div class="input-group">
-                                            <span class="input-group-text">¥</span>
-                                            <input type="number" 
-                                                   class="form-control bg-light" 
-                                                   id="total_amount" 
-                                                   name="total_amount" 
-                                                   step="0.01" 
-                                                   readonly
-                                                   value="0">
-                                        </div>
-                                    </div>
-                                </div>
-                                
-                                <div class="row mt-3">
-                                    <div class="col-md-3">
-                                        <label for="shipping_usd" class="form-label">
-                                            <?= __('loadings.shipping') ?> ($)
-                                        </label>
-                                        <div class="input-group">
-                                            <span class="input-group-text">$</span>
-                                            <input type="number" 
-                                                   class="form-control calculate-total" 
-                                                   id="shipping_usd" 
-                                                   name="shipping_usd" 
-                                                   step="0.01" 
-                                                   min="0"
-                                                   value="0">
-                                        </div>
-                                    </div>
-                                    
-                                    <div class="col-md-3">
-                                        <label class="form-label text-muted">
-                                            <?= __('loadings.shipping_rmb') ?>
-                                        </label>
-                                        <div class="input-group">
-                                            <span class="input-group-text">¥</span>
-                                            <input type="text" 
-                                                   class="form-control bg-light" 
-                                                   id="shipping_rmb_display" 
-                                                   readonly
-                                                   value="0">
-                                        </div>
-                                        <small class="text-muted">1 USD = <?= $exchangeRates['exchange_rate_usd_rmb'] ?? '7.20' ?> RMB</small>
-                                    </div>
-                                    
-                                    <div class="col-md-3">
-                                        <label for="total_with_shipping" class="form-label">
-                                            <?= __('loadings.total_with_shipping') ?> (¥)
-                                        </label>
-                                        <div class="input-group">
-                                            <span class="input-group-text">¥</span>
-                                            <input type="number" 
-                                                   class="form-control bg-warning bg-opacity-10 fw-bold" 
-                                                   id="total_with_shipping" 
-                                                   name="total_with_shipping" 
-                                                   step="0.01" 
-                                                   readonly
-                                                   value="0">
-                                        </div>
-                                    </div>
-                                </div>
+                            
+                            <div class="col-md-2">
+                                <label for="purchase_amount" class="form-label">
+                                    <?= __('loadings.purchase') ?> (¥) <span class="text-danger">*</span>
+                                </label>
+                                <input type="number" 
+                                       class="form-control" 
+                                       id="purchase_amount" 
+                                       name="purchase_amount" 
+                                       step="0.01"
+                                       min="0"
+                                       required>
+                            </div>
+                            
+                            <div class="col-md-2">
+                                <label for="commission_amount" class="form-label">
+                                    <?= __('loadings.commission') ?> (¥)
+                                </label>
+                                <input type="number" 
+                                       class="form-control" 
+                                       id="commission_amount" 
+                                       name="commission_amount" 
+                                       step="0.01"
+                                       min="0"
+                                       value="0">
+                            </div>
+                            
+                            <div class="col-md-2">
+                                <label for="total_amount" class="form-label">
+                                    <?= __('loadings.total') ?> (¥)
+                                </label>
+                                <input type="number" 
+                                       class="form-control" 
+                                       id="total_amount" 
+                                       name="total_amount" 
+                                       step="0.01"
+                                       readonly>
+                            </div>
+                            
+                            <div class="col-md-2">
+                                <label for="shipping_usd" class="form-label">
+                                    <?= __('loadings.shipping') ?> ($)
+                                </label>
+                                <input type="number" 
+                                       class="form-control" 
+                                       id="shipping_usd" 
+                                       name="shipping_usd" 
+                                       step="0.01"
+                                       min="0"
+                                       value="0">
+                            </div>
+                            
+                            <div class="col-md-2">
+                                <label for="total_with_shipping" class="form-label">
+                                    <?= __('loadings.grand_total') ?> (¥)
+                                </label>
+                                <input type="number" 
+                                       class="form-control" 
+                                       id="total_with_shipping" 
+                                       name="total_with_shipping" 
+                                       step="0.01"
+                                       readonly>
                             </div>
                         </div>
                         
-                        <!-- Row 4: Office Assignment -->
+                        <!-- Row 4: Office and Notes -->
                         <div class="row mb-3">
                             <div class="col-md-4">
                                 <label for="office" class="form-label">
                                     <?= __('loadings.office') ?>
                                 </label>
                                 <select class="form-select" id="office" name="office">
-                                    <option value=""><?= __('loadings.no_office') ?></option>
+                                    <option value="">No Office Selected</option>
                                     <?php foreach ($offices as $key => $office): ?>
                                         <option value="<?= $key ?>"><?= $office ?></option>
                                     <?php endforeach; ?>
                                 </select>
-                                <small class="text-muted"><?= __('loadings.office_notification_hint') ?></small>
+                                <small class="text-muted">Notification will be sent to selected office</small>
                             </div>
                             
                             <div class="col-md-8">
@@ -301,23 +256,38 @@ $paymentMethods = [
                                 <textarea class="form-control" 
                                           id="notes" 
                                           name="notes" 
-                                          rows="2"></textarea>
+                                          rows="2"
+                                          placeholder="Any additional notes or instructions"></textarea>
                             </div>
                         </div>
                         
-                        <hr>
+                        <!-- Financial Summary Alert -->
+                        <div class="alert alert-info" role="alert">
+                            <h6 class="alert-heading">
+                                <i class="bi bi-info-circle"></i> Financial Details
+                            </h6>
+                            <p class="mb-0">Purchase, commission, and shipping amounts will be automatically recorded in the client's account.</p>
+                        </div>
                         
-                        <div class="d-flex justify-content-between">
-                            <a href="/loadings" class="btn btn-secondary">
-                                <i class="bi bi-x-circle"></i> <?= __('cancel') ?>
-                            </a>
-                            <div>
-                                <button type="reset" class="btn btn-outline-secondary">
-                                    <i class="bi bi-arrow-clockwise"></i> <?= __('reset') ?>
-                                </button>
-                                <button type="submit" class="btn btn-primary ms-2">
-                                    <i class="bi bi-check-circle"></i> <?= __('save') ?>
-                                </button>
+                        <!-- Port Sudan Sync Alert -->
+                        <div class="alert alert-warning" role="alert" id="port-sudan-alert" style="display: none;">
+                            <h6 class="alert-heading">
+                                <i class="bi bi-arrow-left-right"></i> Port Sudan Synchronization
+                            </h6>
+                            <p class="mb-0">This loading will be automatically synchronized with the Port Sudan system and appear in containers.php</p>
+                        </div>
+                        
+                        <!-- Submit Button -->
+                        <div class="row">
+                            <div class="col-12">
+                                <div class="d-flex justify-content-between">
+                                    <a href="/loadings" class="btn btn-secondary">
+                                        <i class="bi bi-arrow-left"></i> <?= __('back') ?>
+                                    </a>
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="bi bi-save"></i> Create Loading
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </form>
@@ -328,94 +298,118 @@ $paymentMethods = [
 </div>
 
 <script>
-// Exchange rate
-const usdToRmb = <?= $exchangeRates['exchange_rate_usd_rmb'] ?? 7.20 ?>;
-
-// Clients data
-const clientsData = <?= json_encode($clients) ?>;
-
-// Client code input handler
-document.getElementById('client_code').addEventListener('input', function() {
-    const code = this.value.trim();
-    const client = clientsData.find(c => c.client_code === code);
+document.addEventListener('DOMContentLoaded', function() {
+    const clientCodeInput = document.getElementById('client_code');
+    const clientNameInput = document.getElementById('client_name');
+    const purchaseInput = document.getElementById('purchase_amount');
+    const commissionInput = document.getElementById('commission_amount');
+    const totalInput = document.getElementById('total_amount');
+    const shippingInput = document.getElementById('shipping_usd');
+    const grandTotalInput = document.getElementById('total_with_shipping');
+    const officeSelect = document.getElementById('office');
+    const portSudanAlert = document.getElementById('port-sudan-alert');
     
-    if (client) {
-        document.getElementById('client_id').value = client.id;
-        document.getElementById('client_name').value = client.name;
-        
-        // Show client balance info
-        let balanceInfo = '<?= __("balance") ?>: ';
-        if (client.balance_rmb != 0) {
-            balanceInfo += `¥${parseFloat(client.balance_rmb).toLocaleString()}`;
+    // Client data for auto-filling
+    const clientsData = <?= json_encode(array_column($clients, null, 'client_code')) ?>;
+    
+    // Exchange rates
+    const exchangeRates = <?= json_encode($exchangeRates) ?>;
+    const usdToRmbRate = parseFloat(exchangeRates['exchange_rate_usd_rmb'] || '7.20');
+    
+    // Auto-fill client name when client code is selected
+    clientCodeInput.addEventListener('input', function() {
+        const clientCode = this.value.trim();
+        if (clientsData[clientCode]) {
+            clientNameInput.value = clientsData[clientCode].name;
+        } else {
+            clientNameInput.value = '';
         }
-        if (client.balance_usd != 0) {
-            if (client.balance_rmb != 0) balanceInfo += ' | ';
-            balanceInfo += `${parseFloat(client.balance_usd).toLocaleString()}`;
+    });
+    
+    // Calculate totals automatically
+    function calculateTotals() {
+        const purchase = parseFloat(purchaseInput.value) || 0;
+        const commission = parseFloat(commissionInput.value) || 0;
+        const shipping = parseFloat(shippingInput.value) || 0;
+        
+        const total = purchase + commission;
+        const shippingRmb = shipping * usdToRmbRate;
+        const grandTotal = total + shippingRmb;
+        
+        totalInput.value = total.toFixed(2);
+        grandTotalInput.value = grandTotal.toFixed(2);
+    }
+    
+    // Add event listeners for calculation
+    [purchaseInput, commissionInput, shippingInput].forEach(input => {
+        input.addEventListener('input', calculateTotals);
+    });
+    
+    // Show/hide Port Sudan sync alert
+    officeSelect.addEventListener('change', function() {
+        if (this.value === 'port_sudan') {
+            portSudanAlert.style.display = 'block';
+        } else {
+            portSudanAlert.style.display = 'none';
+        }
+    });
+    
+    // Container number formatting
+    const containerInput = document.getElementById('container_no');
+    containerInput.addEventListener('input', function() {
+        this.value = this.value.toUpperCase();
+    });
+    
+    // Form validation
+    document.getElementById('loading-form').addEventListener('submit', function(e) {
+        const loadingNumber = document.getElementById('loading_no').value.trim();
+        const clientCode = clientCodeInput.value.trim();
+        const containerNo = containerInput.value.trim();
+        
+        if (!loadingNumber) {
+            e.preventDefault();
+            alert('Loading number is required');
+            return;
         }
         
-        document.getElementById('client-info').innerHTML = balanceInfo;
-        document.getElementById('client-info').className = 
-            (client.balance_rmb > 0 || client.balance_usd > 0) 
-            ? 'mt-1 small text-danger' 
-            : 'mt-1 small text-success';
-    } else {
-        document.getElementById('client_id').value = '';
-        document.getElementById('client_name').value = '';
-        document.getElementById('client-info').innerHTML = '';
-    }
+        if (!clientCode || !clientsData[clientCode]) {
+            e.preventDefault();
+            alert('Please select a valid client from the list');
+            return;
+        }
+        
+        if (!containerNo.match(/^[A-Z]{4}[0-9]{7}$/)) {
+            e.preventDefault();
+            alert('Container number format is invalid. Must be 4 letters followed by 7 numbers.');
+            return;
+        }
+    });
 });
-
-// Calculate totals
-function calculateTotals() {
-    const purchase = parseFloat(document.getElementById('purchase_amount').value) || 0;
-    const commission = parseFloat(document.getElementById('commission_amount').value) || 0;
-    const shippingUsd = parseFloat(document.getElementById('shipping_usd').value) || 0;
-    
-    // Calculate total (purchase + commission)
-    const total = purchase + commission;
-    document.getElementById('total_amount').value = total.toFixed(2);
-    
-    // Convert shipping to RMB
-    const shippingRmb = shippingUsd * usdToRmb;
-    document.getElementById('shipping_rmb_display').value = shippingRmb.toFixed(2);
-    
-    // Calculate total with shipping
-    const totalWithShipping = total + shippingRmb;
-    document.getElementById('total_with_shipping').value = totalWithShipping.toFixed(2);
-}
-
-// Add event listeners for calculation
-document.querySelectorAll('.calculate-total').forEach(input => {
-    input.addEventListener('input', calculateTotals);
-});
-
-// Container number format enforcement
-document.getElementById('container_no').addEventListener('input', function() {
-    this.value = this.value.toUpperCase();
-});
-
-// Form validation
-document.getElementById('loading-form').addEventListener('submit', function(e) {
-    // Validate client
-    if (!document.getElementById('client_id').value) {
-        e.preventDefault();
-        alert('<?= __("messages.invalid_client_code") ?>');
-        document.getElementById('client_code').focus();
-        return false;
-    }
-    
-    // Validate container format
-    const containerNo = document.getElementById('container_no').value;
-    if (!/^[A-Z]{4}[0-9]{7}$/.test(containerNo)) {
-        e.preventDefault();
-        alert('<?= __("messages.invalid_container_format") ?>');
-        document.getElementById('container_no').focus();
-        return false;
-    }
-});
-
-// Initialize
-calculateTotals();
 </script>
 
-<?php include __DIR__ . '/../layouts/footer.php'; ?>
+<style>
+.alert-info {
+    border-left: 4px solid #17a2b8;
+}
+
+.alert-warning {
+    border-left: 4px solid #ffc107;
+}
+
+#port-sudan-alert {
+    animation: fadeIn 0.5s ease-in;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.form-control:read-only {
+    background-color: #f8f9fa;
+}
+
+.text-info {
+    font-size: 0.875em;
+}
+</style>

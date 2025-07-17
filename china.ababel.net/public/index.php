@@ -88,6 +88,7 @@ $routes = [
         '/logout' => 'AuthController@logout',
         '/profile' => 'AuthController@profile',
         '/change-language' => 'LanguageController@change',
+        '/api/sync/status/{id}' => 'Api\SyncController@status',
         
         // Clients
         '/clients' => 'ClientController@index',
@@ -129,6 +130,11 @@ $routes = [
         '/transactions/approve/{id}' => 'TransactionController@approve',
         '/cashbox/movement' => 'CashboxController@movement',
         '/settings/save' => 'SettingsController@save',
+        '/api/sync/retry/{id}' => 'Api\SyncController@retry',
+        '/api/sync/all' => 'Api\SyncController@syncAll',
+        '/api/sync/webhook' => 'Api\SyncController@webhook',
+        '/api/sync/loading/{id}' => 'Api\SyncController@syncLoading',
+        '/api/sync/bol/{id}' => 'Api\SyncController@updateBol',
         // Loadings
     '/loadings/create' => 'LoadingController@create',
     '/loadings/edit/{id}' => 'LoadingController@edit',
