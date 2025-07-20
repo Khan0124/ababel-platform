@@ -188,7 +188,7 @@ $shippingRmb = $loading['shipping_usd'] * $usdToRmb;
                         <?php if ($loading['updated_by']): ?>
                         <p class="mb-0">
                             <strong><?= __('updated_by') ?>:</strong><br>
-                            <?= $loading['updated_by_name'] ?><br>
+                            <?= $loading['updated_by'] ?><br>
                             <?= date('Y-m-d H:i', strtotime($loading['updated_at'])) ?>
                         </p>
                         <?php endif; ?>

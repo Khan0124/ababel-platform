@@ -1,0 +1,8 @@
+
+<?php
+  $alert_threshold = 50000; // الحد المسموح به قبل التنبيه
+  if ($total > $alert_threshold): ?>
+    <div style="background-color: #fff3cd; border: 1px solid #ffeeba; padding: 15px; margin: 15px 0; border-radius: 8px; color: #856404;">
+      🔔 <strong>تنبيه:</strong> رصيد العميل مرتفع (<?php echo number_format($total); ?> جنيه)
+    </div>
+<?php endif; ?>

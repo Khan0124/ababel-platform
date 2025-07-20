@@ -4,6 +4,24 @@ header('Content-Type: application/json');
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
+// Enable detailed logging
+$logFile = __DIR__ . '/sync_debug.log';
+function logDebug($message, $data = null) {
+    global $logFile;
+    $timestamp = date('Y-m-d H:i:s');
+    $log = "[$timestamp] $message";
+    if ($data) {
+        $log .= " - Data: " . json_encode($data);
+    }
+    file_put_contents($logFile, $log . "\n", FILE_APPEND);
+}
+
+logDebug("Request received", [
+    'method' => $_SERVER['REQUEST_METHOD'],
+    'uri' => $_SERVER['REQUEST_URI'],
+    'headers' => getallheaders()
+]);
+
 // CORS headers
 header("Access-Control-Allow-Origin: https://china.ababel.net");
 header("Access-Control-Allow-Methods: POST, GET, PUT, DELETE, OPTIONS");
@@ -19,7 +37,9 @@ include '../config.php';
 
 // API Key validation
 $apiKey = $_SERVER['HTTP_X_API_KEY'] ?? '';
-$validApiKey = 'your-secure-api-key-here'; // Should be stored in config
+$validApiKey = 'AB@1234X-China2Port!';
+
+logDebug("API Key check", ['provided' => $apiKey, 'valid' => $apiKey === $validApiKey]);
 
 if ($apiKey !== $validApiKey) {
     http_response_code(401);
@@ -27,25 +47,33 @@ if ($apiKey !== $validApiKey) {
     exit;
 }
 
-// Get request method and endpoint
+// Get request method and parse endpoint
 $method = $_SERVER['REQUEST_METHOD'];
-$request = $_SERVER['REQUEST_URI'];
-$endpoint = str_replace('/app/api/china_sync.php', '', $request);
+$requestUri = $_SERVER['REQUEST_URI'];
+
+// Parse the endpoint correctly
+$basePath = '/app/api/china_sync.php';
+$endpoint = str_replace($basePath, '', $requestUri);
+$endpoint = parse_url($endpoint, PHP_URL_PATH) ?: '';
+
+logDebug("Parsed endpoint", ['uri' => $requestUri, 'endpoint' => $endpoint]);
 
 // Parse request body
 $input = json_decode(file_get_contents('php://input'), true);
+logDebug("Request body", $input);
 
 try {
     switch ($method) {
         case 'POST':
-            if (strpos($endpoint, '/containers/create') !== false) {
-                createContainer($conn, $input);
+            if (strpos($endpoint, '/containers/create') !== false || $endpoint === '' || $endpoint === '/') {
+                // Handle both direct calls and path-based calls
+                createContainer($conn, $input['data'] ?? []);
             } elseif (strpos($endpoint, '/containers/update') !== false) {
                 updateContainer($conn, $input);
             } elseif (strpos($endpoint, '/containers/update-bol') !== false) {
                 updateBol($conn, $input);
             } else {
-                throw new Exception('Invalid endpoint');
+                throw new Exception("Invalid endpoint: $endpoint");
             }
             break;
             
@@ -53,7 +81,7 @@ try {
             if (strpos($endpoint, '/containers/delete') !== false) {
                 deleteContainer($conn, $input);
             } else {
-                throw new Exception('Invalid endpoint');
+                throw new Exception("Invalid endpoint for DELETE: $endpoint");
             }
             break;
             
@@ -61,14 +89,15 @@ try {
             if (strpos($endpoint, '/containers/status') !== false) {
                 getContainerStatus($conn, $_GET);
             } else {
-                throw new Exception('Invalid endpoint');
+                throw new Exception("Invalid endpoint for GET: $endpoint");
             }
             break;
             
         default:
-            throw new Exception('Method not allowed');
+            throw new Exception("Method not allowed: $method");
     }
 } catch (Exception $e) {
+    logDebug("Error occurred", ['message' => $e->getMessage()]);
     http_response_code(400);
     echo json_encode(['error' => $e->getMessage()]);
 }
@@ -78,6 +107,9 @@ try {
  */
 function createContainer($conn, $data)
 {
+    global $logFile;
+    logDebug("Creating container", $data);
+    
     // Validate required fields
     $required = ['china_loading_id', 'entry_date', 'code', 'client_name', 'loading_number', 'container_number'];
     foreach ($required as $field) {
@@ -86,45 +118,74 @@ function createContainer($conn, $data)
         }
     }
     
-    // Check for duplicate loading number
-    $stmt = $conn->prepare("SELECT id FROM containers WHERE loading_number = ?");
-    $stmt->bind_param("s", $data['loading_number']);
+    // Check if container already exists for this china_loading_id
+    $stmt = $conn->prepare("SELECT id FROM containers WHERE china_loading_id = ?");
+    $stmt->bind_param("i", $data['china_loading_id']);
     $stmt->execute();
     if ($stmt->get_result()->num_rows > 0) {
-        throw new Exception("Loading number already exists");
+        logDebug("Container already exists for china_loading_id", ['id' => $data['china_loading_id']]);
+        
+        // Return success with existing container info
+        $stmt = $conn->prepare("SELECT id FROM containers WHERE china_loading_id = ?");
+        $stmt->bind_param("i", $data['china_loading_id']);
+        $stmt->execute();
+        $result = $stmt->get_result()->fetch_assoc();
+        
+        echo json_encode([
+            'success' => true,
+            'container_id' => $result['id'],
+            'message' => 'Container already exists',
+            'existing' => true
+        ]);
+        return;
     }
     
-    // Insert new container
+    // Insert new container with all fields properly mapped
     $sql = "INSERT INTO containers (
                 china_loading_id, entry_date, code, client_name, loading_number, 
-                carton_count, container_number, bill_number, category, carrier,
-                expected_arrival, ship_name, custom_station, office, 
-                created_at, seen_by_port, synced
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), 0, 1)";
+                loading_no, carton_count, container_number, bill_number, category, 
+                carrier, expected_arrival, ship_name, custom_station, office, 
+                created_at, seen_by_port, synced, status
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), 0, 1, 'pending')";
     
     $stmt = $conn->prepare($sql);
-    $stmt->bind_param("issssissssssss",
+    
+    // Set default values
+    $cartonCount = isset($data['carton_count']) ? intval($data['carton_count']) : 0;
+    $billNumber = $data['bill_number'] ?? $data['claim_number'] ?? '';
+    $category = $data['category'] ?? 'General Cargo';
+    $carrier = $data['carrier'] ?? 'TBD';
+    $expectedArrival = $data['expected_arrival'] ?? date('Y-m-d', strtotime('+30 days'));
+    $shipName = $data['ship_name'] ?? 'TBD';
+    $customStation = $data['custom_station'] ?? 'Port Sudan';
+    $office = $data['office'] ?? 'بورتسودان';
+    $loadingNo = $data['loading_number']; // Use the same value for both fields
+    
+    $stmt->bind_param("isssssississsss",
         $data['china_loading_id'],
         $data['entry_date'],
         $data['code'],
         $data['client_name'],
         $data['loading_number'],
-        $data['carton_count'] ?? 0,
+        $loadingNo,
+        $cartonCount,
         $data['container_number'],
-        $data['bill_number'] ?? '',
-        $data['category'] ?? 'General Cargo',
-        $data['carrier'] ?? 'TBD',
-        $data['expected_arrival'] ?? date('Y-m-d', strtotime('+30 days')),
-        $data['ship_name'] ?? 'TBD',
-        $data['custom_station'] ?? 'Port Sudan',
-        $data['office'] ?? 'بورتسودان'
+        $billNumber,
+        $category,
+        $carrier,
+        $expectedArrival,
+        $shipName,
+        $customStation,
+        $office
     );
     
     if (!$stmt->execute()) {
+        logDebug("Database error", ['error' => $stmt->error]);
         throw new Exception("Database error: " . $stmt->error);
     }
     
     $containerId = $conn->insert_id;
+    logDebug("Container created successfully", ['container_id' => $containerId]);
     
     // Create notification
     createContainerNotification($conn, $containerId, 'new_container', 
@@ -145,6 +206,8 @@ function createContainer($conn, $data)
  */
 function updateContainer($conn, $data)
 {
+    logDebug("Updating container", $data);
+    
     if (empty($data['china_loading_id'])) {
         throw new Exception("Missing china_loading_id");
     }
@@ -156,7 +219,7 @@ function updateContainer($conn, $data)
     $result = $stmt->get_result();
     
     if ($result->num_rows === 0) {
-        throw new Exception("Container not found");
+        throw new Exception("Container not found for china_loading_id: " . $data['china_loading_id']);
     }
     
     $container = $result->fetch_assoc();
@@ -171,6 +234,7 @@ function updateContainer($conn, $data)
         'entry_date' => 's',
         'client_name' => 's',
         'loading_number' => 's',
+        'loading_no' => 's',
         'carton_count' => 'i',
         'container_number' => 's',
         'category' => 's',
@@ -185,6 +249,13 @@ function updateContainer($conn, $data)
             $params[] = $data[$field];
             $types .= $type;
         }
+    }
+    
+    // Always update loading_no to match loading_number
+    if (isset($data['loading_number']) && !isset($data['loading_no'])) {
+        $updateFields[] = "loading_no = ?";
+        $params[] = $data['loading_number'];
+        $types .= 's';
     }
     
     if (empty($updateFields)) {
@@ -202,9 +273,9 @@ function updateContainer($conn, $data)
         throw new Exception("Database error: " . $stmt->error);
     }
     
-    // Create notification
     createContainerNotification($conn, $containerId, 'container_updated',
-        "Container {$data['container_number'] ?? 'unknown'} has been updated from China system");
+    'Container ' . ($data['container_number'] ?? 'unknown') . ' has been updated from China system');
+
     
     // Log sync
     logSync($conn, 'update_container', $data['china_loading_id'], $containerId, $data, 'success');
@@ -220,6 +291,8 @@ function updateContainer($conn, $data)
  */
 function updateBol($conn, $data)
 {
+    logDebug("Updating BOL", $data);
+    
     if (empty($data['china_loading_id'])) {
         throw new Exception("Missing china_loading_id");
     }
@@ -240,37 +313,28 @@ function updateBol($conn, $data)
     // Update BOL status in containers table
     $sql = "UPDATE containers SET bill_of_lading_status = ?, bill_of_lading_date = ? WHERE id = ?";
     $stmt = $conn->prepare($sql);
-    $stmt->bind_param("ssi", 
-        $data['bill_of_lading_status'],
-        $data['bill_of_lading_date'] ?? date('Y-m-d'),
-        $containerId
-    );
+    
+    $bolStatus = $data['bill_of_lading_status'] ?? 'issued';
+    $bolDate = $data['bill_of_lading_date'] ?? date('Y-m-d');
+    
+    $stmt->bind_param("ssi", $bolStatus, $bolDate, $containerId);
     
     if (!$stmt->execute()) {
         throw new Exception("Database error: " . $stmt->error);
     }
     
     // Insert into container_operational_status if BOL is issued
-    if ($data['bill_of_lading_status'] === 'issued') {
+    if ($bolStatus === 'issued') {
         $stmt = $conn->prepare("INSERT INTO container_operational_status (container_id, status, date, created_at) 
                                VALUES (?, 'Bill of Lading Issued', ?, NOW()) 
                                ON DUPLICATE KEY UPDATE date = VALUES(date)");
-        $stmt->bind_param("is", $containerId, $data['bill_of_lading_date'] ?? date('Y-m-d'));
-        $stmt->execute();
-    }
-    
-    // Handle file sync if provided
-    if (!empty($data['bill_of_lading_file'])) {
-        // Note: File handling would need additional implementation for file transfer
-        $sql = "UPDATE containers SET bill_of_lading_file = ? WHERE id = ?";
-        $stmt = $conn->prepare($sql);
-        $stmt->bind_param("si", $data['bill_of_lading_file'], $containerId);
+        $stmt->bind_param("is", $containerId, $bolDate);
         $stmt->execute();
     }
     
     // Create notification
     createContainerNotification($conn, $containerId, 'bol_updated',
-        "Bill of Lading status updated for container {$container['container_number']}: {$data['bill_of_lading_status']}");
+        "Bill of Lading status updated for container {$container['container_number']}: {$bolStatus}");
     
     // Log sync
     logSync($conn, 'update_bol', $data['china_loading_id'], $containerId, $data, 'success');
@@ -286,6 +350,8 @@ function updateBol($conn, $data)
  */
 function deleteContainer($conn, $data)
 {
+    logDebug("Deleting container", $data);
+    
     if (empty($data['china_loading_id'])) {
         throw new Exception("Missing china_loading_id");
     }
@@ -379,52 +445,24 @@ function createContainerNotification($conn, $containerId, $type, $message)
  */
 function logSync($conn, $action, $chinaLoadingId, $containerId, $data, $status)
 {
-    $stmt = $conn->prepare("INSERT INTO api_sync_log (
-                               endpoint, method, china_loading_id, container_id, 
-                               request_data, response_code, response_data, 
-                               ip_address, created_at
-                           ) VALUES (?, 'POST', ?, ?, ?, 200, ?, ?, NOW())");
-    
-    $endpoint = "/api/china_sync/$action";
-    $requestData = json_encode($data);
-    $responseData = json_encode(['status' => $status]);
-    $ipAddress = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
-    
-    $stmt->bind_param("siisss", 
-        $endpoint, $chinaLoadingId, $containerId, 
-        $requestData, $responseData, $ipAddress
-    );
-    $stmt->execute();
-}
-
-/**
- * Webhook endpoint for Port Sudan to notify China of local changes
- */
-function sendWebhookToChina($action, $data)
-{
-    $webhookUrl = 'https://china.ababel.net/api/port-sudan-webhook';
-    
-    $payload = json_encode([
-        'action' => $action,
-        'data' => $data,
-        'timestamp' => date('Y-m-d H:i:s'),
-        'source' => 'port_sudan'
-    ]);
-    
-    $ch = curl_init();
-    curl_setopt($ch, CURLOPT_URL, $webhookUrl);
-    curl_setopt($ch, CURLOPT_POST, true);
-    curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
-    curl_setopt($ch, CURLOPT_HTTPHEADER, [
-        'Content-Type: application/json',
-        'X-API-Key: your-webhook-key'
-    ]);
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($ch, CURLOPT_TIMEOUT, 10);
-    
-    $response = curl_exec($ch);
-    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    curl_close($ch);
-    
-    return ['code' => $httpCode, 'response' => $response];
+    try {
+        $stmt = $conn->prepare("INSERT INTO api_sync_log (
+                                   endpoint, method, china_loading_id, container_id, 
+                                   request_data, response_code, response_data, 
+                                   ip_address, created_at
+                               ) VALUES (?, 'POST', ?, ?, ?, 200, ?, ?, NOW())");
+        
+        $endpoint = "/api/china_sync/$action";
+        $requestData = json_encode($data);
+        $responseData = json_encode(['status' => $status]);
+        $ipAddress = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
+        
+        $stmt->bind_param("siisss", 
+            $endpoint, $chinaLoadingId, $containerId, 
+            $requestData, $responseData, $ipAddress
+        );
+        $stmt->execute();
+    } catch (Exception $e) {
+        logDebug("Failed to log sync", ['error' => $e->getMessage()]);
+    }
 }

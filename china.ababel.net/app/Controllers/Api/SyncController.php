@@ -1,5 +1,4 @@
 <?php
-// app/Controllers/Api/SyncController.php
 namespace App\Controllers\Api;
 
 use App\Core\Controller;
@@ -13,14 +12,9 @@ class SyncController extends Controller
     {
         parent::__construct();
         $this->syncService = new SyncService();
-        
-        // Set JSON response headers
         header('Content-Type: application/json');
     }
     
-    /**
-     * Retry sync for a specific loading
-     */
     public function retry($loadingId)
     {
         try {
@@ -42,7 +36,6 @@ class SyncController extends Controller
                     'message' => $result['message']
                 ]);
             }
-            
         } catch (\Exception $e) {
             http_response_code(400);
             echo json_encode([
@@ -52,9 +45,6 @@ class SyncController extends Controller
         }
     }
     
-    /**
-     * Get sync status for a loading
-     */
     public function status($loadingId)
     {
         try {
@@ -78,7 +68,6 @@ class SyncController extends Controller
                 'sync_attempts' => count($syncLog),
                 'sync_log' => $syncLog
             ]);
-            
         } catch (\Exception $e) {
             http_response_code(400);
             echo json_encode([
@@ -88,15 +77,14 @@ class SyncController extends Controller
         }
     }
     
-    /**
-     * Sync all pending loadings
-     */
     public function syncAll()
     {
         try {
             $results = $this->syncService->syncPendingLoadings();
             
-            $successCount = count(array_filter($results, function($r) { return $r['status'] === 'success'; }));
+            $successCount = count(array_filter($results, function($r) { 
+                return $r['status'] === 'success'; 
+            }));
             $totalCount = count($results);
             
             echo json_encode([
@@ -107,7 +95,6 @@ class SyncController extends Controller
                 'failed' => $totalCount - $successCount,
                 'results' => $results
             ]);
-            
         } catch (\Exception $e) {
             http_response_code(500);
             echo json_encode([
@@ -117,9 +104,6 @@ class SyncController extends Controller
         }
     }
     
-    /**
-     * Get sync statistics
-     */
     public function statistics()
     {
         try {
@@ -136,7 +120,6 @@ class SyncController extends Controller
                     'to' => $dateTo
                 ]
             ]);
-            
         } catch (\Exception $e) {
             http_response_code(500);
             echo json_encode([
@@ -146,15 +129,11 @@ class SyncController extends Controller
         }
     }
     
-    /**
-     * Handle Port Sudan webhook
-     */
     public function webhook()
     {
         try {
-            // Verify webhook signature/API key
             $apiKey = $_SERVER['HTTP_X_API_KEY'] ?? '';
-            $validApiKey = config('webhook_api_key', 'your-webhook-key');
+            $validApiKey = config('webhook_api_key', 'AB@1234X-China2Port!');
             
             if ($apiKey !== $validApiKey) {
                 http_response_code(401);
@@ -175,7 +154,6 @@ class SyncController extends Controller
                 'message' => $result['message'],
                 'data' => $result
             ]);
-            
         } catch (\Exception $e) {
             http_response_code(400);
             echo json_encode([
@@ -185,13 +163,9 @@ class SyncController extends Controller
         }
     }
     
-    /**
-     * Test sync connection
-     */
     public function testConnection()
     {
         try {
-            // Test API connection to Port Sudan
             $testData = [
                 'test' => true,
                 'timestamp' => date('Y-m-d H:i:s'),
@@ -229,7 +203,6 @@ class SyncController extends Controller
                 'response' => $responseData,
                 'message' => $httpCode >= 200 && $httpCode < 300 ? 'Connection successful' : 'Connection failed'
             ]);
-            
         } catch (\Exception $e) {
             echo json_encode([
                 'success' => false,
@@ -238,9 +211,6 @@ class SyncController extends Controller
         }
     }
     
-    /**
-     * Manual sync trigger for specific loading
-     */
     public function syncLoading($loadingId)
     {
         try {
@@ -248,6 +218,7 @@ class SyncController extends Controller
                 throw new \Exception('Invalid loading ID');
             }
             
+            error_log("Starting manual sync for loading: $loadingId");
             $result = $this->syncService->syncLoadingToPortSudan($loadingId);
             
             echo json_encode([
@@ -256,7 +227,6 @@ class SyncController extends Controller
                 'loading_id' => $loadingId,
                 'port_sudan_container_id' => $result['port_sudan_container_id'] ?? null
             ]);
-            
         } catch (\Exception $e) {
             http_response_code(400);
             echo json_encode([
@@ -266,9 +236,6 @@ class SyncController extends Controller
         }
     }
     
-    /**
-     * Update BOL status and sync
-     */
     public function updateBol($loadingId)
     {
         try {
@@ -291,11 +258,14 @@ class SyncController extends Controller
                 $bolData['bill_of_lading_file'] = $input['bill_of_lading_file'];
             }
             
-            // Update in local database
             $loadingModel = new \App\Models\Loading();
-            $loadingModel->updateBolStatus($loadingId, $bolData['bill_of_lading_status'], $bolData['bill_of_lading_date'], $bolData['bill_of_lading_file'] ?? null);
+            $loadingModel->updateBolStatus(
+                $loadingId, 
+                $bolData['bill_of_lading_status'], 
+                $bolData['bill_of_lading_date'], 
+                $bolData['bill_of_lading_file'] ?? null
+            );
             
-            // Sync to Port Sudan
             $syncResult = $this->syncService->syncBolToPortSudan($loadingId, $bolData);
             
             echo json_encode([
@@ -304,7 +274,6 @@ class SyncController extends Controller
                 'loading_id' => $loadingId,
                 'sync_success' => $syncResult
             ]);
-            
         } catch (\Exception $e) {
             http_response_code(400);
             echo json_encode([

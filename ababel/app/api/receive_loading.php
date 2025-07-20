@@ -1,18 +1,20 @@
 <?php
-// ababel.net/app/api/receive_loading.php
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: https://china.ababel.net');
 header('Access-Control-Allow-Methods: POST, PUT, DELETE');
 header('Access-Control-Allow-Headers: Content-Type, X-API-Key, X-Signature, X-Timestamp');
 
-// Include necessary files
 require_once '../config.php';
 require_once '../auth.php';
 
-// API Configuration
-$API_KEY = 'secure-api-key-here'; // Should match China system
+ini_set('display_errors', 0);
+ini_set('log_errors', 1);
+ini_set('error_log', __DIR__ . '/api_errors.log');
 
-// Verify API Key
+file_put_contents(__DIR__ . '/api_debug.log', date('Y-m-d H:i:s') . " Request: " . file_get_contents('php://input') . "\n", FILE_APPEND);
+
+$API_KEY = 'AB@1234X-China2Port!';
+
 $headers = getallheaders();
 $providedApiKey = $headers['X-API-Key'] ?? '';
 $signature = $headers['X-Signature'] ?? '';
@@ -24,7 +26,6 @@ if ($providedApiKey !== $API_KEY) {
     exit;
 }
 
-// Get request body
 $input = file_get_contents('php://input');
 $data = json_decode($input, true);
 
@@ -34,23 +35,21 @@ if (!$data) {
     exit;
 }
 
-// Verify signature
 $expectedSignature = hash_hmac('sha256', $input, $API_KEY);
 if (!hash_equals($expectedSignature, $signature)) {
-    http_response_code(401);
+    http_response_code(400);
     echo json_encode(['success' => false, 'error' => 'Invalid signature']);
     exit;
 }
 
-// Verify timestamp (prevent replay attacks)
+
 $currentTime = time();
-if (abs($currentTime - intval($timestamp)) > 300) { // 5 minutes tolerance
+if (abs($currentTime - intval($timestamp)) > 300) {
     http_response_code(401);
     echo json_encode(['success' => false, 'error' => 'Request expired']);
     exit;
 }
 
-// Process the request based on action
 $action = $data['action'] ?? 'create';
 $chinaLoadingId = $data['china_loading_id'] ?? null;
 $loadingData = $data['data'] ?? [];
@@ -60,26 +59,25 @@ try {
         case 'create':
             $result = createContainer($conn, $loadingData, $chinaLoadingId);
             break;
-            
         case 'update':
             $result = updateContainer($conn, $loadingData, $chinaLoadingId);
             break;
-            
         case 'delete':
             $result = deleteContainer($conn, $chinaLoadingId);
             break;
-            
         case 'status':
             $result = updateContainerStatus($conn, $data);
             break;
-            
         default:
             throw new Exception('Invalid action');
     }
+
     
+    file_put_contents(__DIR__ . '/api_success.log', date('Y-m-d H:i:s') . " Action: $action - ChinaID: $chinaLoadingId - Success\n", FILE_APPEND);
     echo json_encode($result);
-    
 } catch (Exception $e) {
+    $errorMsg = "Error: " . $e->getMessage() . " - ChinaID: $chinaLoadingId";
+    file_put_contents(__DIR__ . '/api_errors.log', date('Y-m-d H:i:s') . " $errorMsg\n", FILE_APPEND);
     http_response_code(500);
     echo json_encode([
         'success' => false,
@@ -87,11 +85,7 @@ try {
     ]);
 }
 
-/**
- * Create new container from China loading
- */
 function createContainer($conn, $data, $chinaLoadingId) {
-    // Validate required fields
     $required = ['entry_date', 'code', 'client_name', 'loading_number', 'container_number'];
     foreach ($required as $field) {
         if (empty($data[$field])) {
@@ -99,7 +93,6 @@ function createContainer($conn, $data, $chinaLoadingId) {
         }
     }
     
-    // Check for duplicate china_loading_id
     $stmt = $conn->prepare("SELECT id FROM containers WHERE china_loading_id = ?");
     $stmt->bind_param("i", $chinaLoadingId);
     $stmt->execute();
@@ -108,7 +101,6 @@ function createContainer($conn, $data, $chinaLoadingId) {
     }
     $stmt->close();
     
-    // Prepare insert statement
     $sql = "INSERT INTO containers (
         entry_date, code, client_name, loading_number, loading_no,
         carton_count, container_number, bill_number, category,
@@ -119,12 +111,11 @@ function createContainer($conn, $data, $chinaLoadingId) {
     
     $stmt = $conn->prepare($sql);
     
-    // Set default values
     $data['bill_number'] = $data['bill_number'] ?? '';
-    $data['carrier'] = $data['carrier'] ?? '';
+    $data['carrier'] = $data['carrier'] ?? 'TBD';
     $data['expected_arrival'] = $data['expected_arrival'] ?? date('Y-m-d', strtotime('+30 days'));
-    $data['ship_name'] = $data['ship_name'] ?? '';
-    $data['custom_station'] = $data['custom_station'] ?? '';
+    $data['ship_name'] = $data['ship_name'] ?? 'TBD';
+    $data['custom_station'] = $data['custom_station'] ?? 'Port Sudan';
     $data['unloading_place'] = $data['unloading_place'] ?? '';
     $data['release_status'] = $data['release_status'] ?? 'No';
     $data['company_release'] = $data['company_release'] ?? 'No';
@@ -164,8 +155,9 @@ function createContainer($conn, $data, $chinaLoadingId) {
     $containerId = $stmt->insert_id;
     $stmt->close();
     
-    // Create notification for Port Sudan users
-    createNotification($conn, $containerId, $data);
+    $conn->query("INSERT INTO office_notifications (office, type, reference_id, message) 
+                 VALUES ('port_sudan', 'new_container', $containerId, 
+                 'New container {$data['container_number']} from China system')");
     
     return [
         'success' => true,
@@ -174,11 +166,7 @@ function createContainer($conn, $data, $chinaLoadingId) {
     ];
 }
 
-/**
- * Update existing container
- */
 function updateContainer($conn, $data, $chinaLoadingId) {
-    // Find container by china_loading_id
     $stmt = $conn->prepare("SELECT id FROM containers WHERE china_loading_id = ?");
     $stmt->bind_param("i", $chinaLoadingId);
     $stmt->execute();
@@ -192,7 +180,6 @@ function updateContainer($conn, $data, $chinaLoadingId) {
     $containerId = $container['id'];
     $stmt->close();
     
-    // Build update query dynamically
     $updateFields = [];
     $params = [];
     $types = '';
@@ -221,14 +208,11 @@ function updateContainer($conn, $data, $chinaLoadingId) {
         throw new Exception("No fields to update");
     }
     
-    // Add container ID to params
     $params[] = $containerId;
     $types .= 'i';
     
     $sql = "UPDATE containers SET " . implode(', ', $updateFields) . " WHERE id = ?";
     $stmt = $conn->prepare($sql);
-    
-    // Bind parameters dynamically
     $stmt->bind_param($types, ...$params);
     
     if (!$stmt->execute()) {
@@ -244,11 +228,7 @@ function updateContainer($conn, $data, $chinaLoadingId) {
     ];
 }
 
-/**
- * Delete container
- */
 function deleteContainer($conn, $chinaLoadingId) {
-    // Find and delete container
     $stmt = $conn->prepare("DELETE FROM containers WHERE china_loading_id = ?");
     $stmt->bind_param("i", $chinaLoadingId);
     
@@ -268,9 +248,6 @@ function deleteContainer($conn, $chinaLoadingId) {
     ];
 }
 
-/**
- * Update container status
- */
 function updateContainerStatus($conn, $data) {
     $chinaLoadingId = $data['china_loading_id'] ?? null;
     $status = $data['status'] ?? null;
@@ -279,7 +256,6 @@ function updateContainerStatus($conn, $data) {
         throw new Exception("Missing china_loading_id or status");
     }
     
-    // Map status if needed
     $statusMap = [
         'pending' => 'pending',
         'shipped' => 'shipped',
@@ -307,24 +283,4 @@ function updateContainerStatus($conn, $data) {
         'success' => true,
         'message' => 'Container status updated successfully'
     ];
-}
-
-/**
- * Create notification for Port Sudan users
- */
-function createNotification($conn, $containerId, $data) {
-    $message = sprintf(
-        "حاوية جديدة من مكتب الصين: %s - العميل: %s",
-        $data['container_number'],
-        $data['client_name']
-    );
-    
-    // You can implement a notification system here
-    // For now, we'll just mark the container as new (seen_by_port = 0)
-    
-    // Optional: Send email notification
-    // sendEmailNotification($message, $data);
-    
-    // Optional: Create system notification
-    // createSystemNotification($conn, $message, $containerId);
 }

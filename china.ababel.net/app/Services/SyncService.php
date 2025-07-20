@@ -1,5 +1,4 @@
 <?php
-// app/Services/SyncService.php
 namespace App\Services;
 
 use App\Core\Database;
@@ -16,12 +15,29 @@ class SyncService
     {
         $this->db = Database::getInstance();
         $this->loadingModel = new Loading();
-        $this->portSudanApiUrl = config('port_sudan_api_url', 'https://ababel.net/app/api/china_sync.php');
-        $this->apiKey = config('port_sudan_api_key', 'your-secure-api-key');
+        
+        // Load settings from database
+        $this->loadSettings();
     }
     
     /**
-     * Sync all pending Port Sudan loadings
+     * Load API settings from database
+     */
+    private function loadSettings()
+    {
+        // Get API URL from settings
+        $stmt = $this->db->query("SELECT setting_value FROM settings WHERE setting_key = 'port_sudan_api_url'");
+        $result = $stmt->fetch();
+        $this->portSudanApiUrl = $result ? $result['setting_value'] : 'https://ababel.net/app/api/china_sync.php';
+        
+        // Get API Key from settings
+        $stmt = $this->db->query("SELECT setting_value FROM settings WHERE setting_key = 'port_sudan_api_key'");
+        $result = $stmt->fetch();
+        $this->apiKey = $result ? $result['setting_value'] : 'AB@1234X-China2Port!';
+    }
+    
+    /**
+     * Sync all pending loadings to Port Sudan
      */
     public function syncPendingLoadings()
     {
@@ -42,6 +58,13 @@ class SyncService
                     'status' => 'error',
                     'message' => $e->getMessage()
                 ];
+                
+                // Update sync attempts
+                $this->db->query(
+                    "UPDATE loadings SET sync_attempts = sync_attempts + 1, 
+                     last_sync_at = NOW() WHERE id = ?",
+                    [$loading['id']]
+                );
             }
         }
         
@@ -49,7 +72,7 @@ class SyncService
     }
     
     /**
-     * Sync specific loading to Port Sudan
+     * Sync single loading to Port Sudan
      */
     public function syncLoadingToPortSudan($loading)
     {
@@ -60,14 +83,14 @@ class SyncService
             }
         }
         
-        // Prepare sync data
+        // Prepare data for Port Sudan API
         $syncData = [
             'china_loading_id' => $loading['id'],
             'entry_date' => $loading['shipping_date'],
             'code' => $loading['client_code'],
             'client_name' => $loading['client_name'],
-            'loading_number' => $loading['loading_number'],
-            'carton_count' => $loading['cartons_count'],
+            'loading_number' => $loading['loading_no'],
+            'carton_count' => intval($loading['cartons_count']),
             'container_number' => $loading['container_no'],
             'bill_number' => $loading['claim_number'] ?? '',
             'category' => $loading['item_description'] ?: 'General Cargo',
@@ -75,21 +98,36 @@ class SyncService
             'expected_arrival' => date('Y-m-d', strtotime($loading['shipping_date'] . ' +30 days')),
             'ship_name' => 'TBD',
             'custom_station' => 'Port Sudan',
-            'office' => 'بورتسودان',
-            'created_at' => $loading['created_at'] ?? date('Y-m-d H:i:s'),
-            'seen_by_port' => 0,
-            'synced' => 1
+            'office' => 'بورتسودان'
         ];
         
-        // Make API call
-        $response = $this->makeApiCall('/containers/create', $syncData);
+        // Make API call to create container using action parameter
+        $response = $this->makeApiCall([
+            'action' => 'create_container',
+            'data' => $syncData
+        ], 'POST');
         
-        // Log the sync attempt
+        // Log sync attempt
         $this->logSyncAttempt('create_container', $loading['id'], null, $syncData, $response);
         
         if ($response['success']) {
-            // Update loading status to indicate successful sync
-            $this->loadingModel->update($loading['id'], ['sync_status' => 'completed']);
+            // Update loading with sync status and Port Sudan ID
+            $this->db->query(
+                "UPDATE loadings SET 
+                    sync_status = 'synced',
+                    port_sudan_id = ?,
+                    last_sync_at = NOW(),
+                    sync_attempts = sync_attempts + 1
+                WHERE id = ?",
+                [$response['container_id'] ?? null, $loading['id']]
+            );
+            
+            // Log in loading_sync_log
+            $this->db->query(
+                "INSERT INTO loading_sync_log (loading_id, action, status, request_data, response_data) 
+                VALUES (?, 'create', 'success', ?, ?)",
+                [$loading['id'], json_encode($syncData), json_encode($response)]
+            );
             
             return [
                 'success' => true,
@@ -97,7 +135,120 @@ class SyncService
                 'port_sudan_container_id' => $response['container_id'] ?? null
             ];
         } else {
+            // Update sync status to failed
+            $this->db->query(
+                "UPDATE loadings SET 
+                    sync_status = 'failed',
+                    last_sync_at = NOW(),
+                    sync_attempts = sync_attempts + 1
+                WHERE id = ?",
+                [$loading['id']]
+            );
+            
             throw new \Exception('Port Sudan sync failed: ' . ($response['error'] ?? 'Unknown error'));
+        }
+    }
+    
+    /**
+     * Make API call to Port Sudan with action parameter
+     */
+    private function makeApiCall($requestData, $method = 'POST')
+    {
+        // Base URL without endpoint
+        $url = $this->portSudanApiUrl;
+        
+        $ch = curl_init();
+        
+        // Common CURL options
+        $curlOptions = [
+            CURLOPT_URL => $url,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT => 30,
+            CURLOPT_HTTPHEADER => [
+                'Content-Type: application/json',
+                'Accept: application/json',
+                'X-API-Key: ' . $this->apiKey
+            ],
+            CURLOPT_SSL_VERIFYPEER => false,
+            CURLOPT_SSL_VERIFYHOST => false
+        ];
+        
+        // Method-specific options
+        if ($method === 'POST') {
+            $curlOptions[CURLOPT_POST] = true;
+            $curlOptions[CURLOPT_POSTFIELDS] = json_encode($requestData);
+        } elseif ($method === 'PUT') {
+            $curlOptions[CURLOPT_CUSTOMREQUEST] = 'PUT';
+            $curlOptions[CURLOPT_POSTFIELDS] = json_encode($requestData);
+        } elseif ($method === 'DELETE') {
+            $curlOptions[CURLOPT_CUSTOMREQUEST] = 'DELETE';
+            $curlOptions[CURLOPT_POSTFIELDS] = json_encode($requestData);
+        } elseif ($method === 'GET' && !empty($requestData)) {
+            $url .= '?' . http_build_query($requestData);
+            $curlOptions[CURLOPT_URL] = $url;
+        }
+        
+        curl_setopt_array($ch, $curlOptions);
+        
+        $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $error = curl_error($ch);
+        curl_close($ch);
+        
+        if ($error) {
+            throw new \Exception("CURL Error: " . $error);
+        }
+        
+        $decodedResponse = json_decode($response, true);
+        
+        // Handle API key errors specifically
+        if (isset($decodedResponse['error']) && strpos($decodedResponse['error'], 'Invalid API key') !== false) {
+            throw new \Exception("Port Sudan API rejected our API key. Please verify the key in system settings.");
+        }
+        
+        if ($httpCode >= 400) {
+            $errorMsg = "HTTP Error: $httpCode\n";
+            $errorMsg .= "URL: $url\n";
+            $errorMsg .= "Method: $method\n";
+            $errorMsg .= "Request: " . json_encode($requestData) . "\n";
+            $errorMsg .= "Response: $response";
+            throw new \Exception($errorMsg);
+        }
+        
+        // Return standardized response
+        return [
+            'success' => $httpCode >= 200 && $httpCode < 300,
+            'http_code' => $httpCode,
+            'response' => $response,
+            'data' => $decodedResponse
+        ] + ($decodedResponse ?: []);
+    }
+    
+    /**
+     * Log sync attempt to api_sync_log table
+     */
+    private function logSyncAttempt($action, $chinaLoadingId, $containerId, $requestData, $response)
+    {
+        try {
+            $this->db->query(
+                "INSERT INTO api_sync_log (
+                    endpoint, method, china_loading_id, container_id, 
+                    request_data, response_code, response_data, 
+                    ip_address, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())",
+                [
+                    $this->portSudanApiUrl, // Log the base URL
+                    'POST',
+                    $chinaLoadingId,
+                    $containerId,
+                    json_encode(['action' => $action, 'data' => $requestData]),
+                    $response['http_code'] ?? 0,
+                    json_encode($response),
+                    $_SERVER['REMOTE_ADDR'] ?? 'system'
+                ]
+            );
+        } catch (\Exception $e) {
+            error_log("Failed to log sync attempt: " . $e->getMessage());
         }
     }
     
@@ -111,16 +262,20 @@ class SyncService
             return false;
         }
         
+        // Add china_loading_id to update data
         $syncData = array_merge(['china_loading_id' => $loadingId], $updateData);
         
-        $response = $this->makeApiCall('/containers/update', $syncData);
+        $response = $this->makeApiCall([
+            'action' => 'update_container',
+            'data' => $syncData
+        ], 'POST');
         $this->logSyncAttempt('update_container', $loadingId, null, $syncData, $response);
         
         return $response['success'] ?? false;
     }
     
     /**
-     * Sync BOL status to Port Sudan
+     * Sync BOL to Port Sudan
      */
     public function syncBolToPortSudan($loadingId, $bolData)
     {
@@ -129,17 +284,15 @@ class SyncService
             return false;
         }
         
-        $syncData = [
-            'china_loading_id' => $loadingId,
-            'bill_of_lading_status' => $bolData['bill_of_lading_status'],
-            'bill_of_lading_date' => $bolData['bill_of_lading_date'] ?? date('Y-m-d')
-        ];
+        $syncData = array_merge(
+            ['china_loading_id' => $loadingId],
+            $bolData
+        );
         
-        if (isset($bolData['bill_of_lading_file'])) {
-            $syncData['bill_of_lading_file'] = $bolData['bill_of_lading_file'];
-        }
-        
-        $response = $this->makeApiCall('/containers/update-bol', $syncData);
+        $response = $this->makeApiCall([
+            'action' => 'update_bol',
+            'data' => $syncData
+        ], 'POST');
         $this->logSyncAttempt('update_bol', $loadingId, null, $syncData, $response);
         
         return $response['success'] ?? false;
@@ -152,14 +305,25 @@ class SyncService
     {
         $syncData = ['china_loading_id' => $loadingId];
         
-        $response = $this->makeApiCall('/containers/delete', $syncData, 'DELETE');
+        $response = $this->makeApiCall([
+            'action' => 'delete_container',
+            'data' => $syncData
+        ], 'POST');
         $this->logSyncAttempt('delete_container', $loadingId, null, $syncData, $response);
+        
+        // Update sync status if deletion successful
+        if ($response['success'] ?? false) {
+            $this->db->query(
+                "UPDATE loadings SET sync_status = NULL, port_sudan_id = NULL WHERE id = ?",
+                [$loadingId]
+            );
+        }
         
         return $response['success'] ?? false;
     }
     
     /**
-     * Check sync status of a loading
+     * Get loading sync status
      */
     public function getLoadingSyncStatus($loadingId)
     {
@@ -167,10 +331,9 @@ class SyncService
             "SELECT * FROM api_sync_log 
              WHERE china_loading_id = ? 
              ORDER BY created_at DESC 
-             LIMIT 5", 
+             LIMIT 10", 
             [$loadingId]
         );
-        
         return $stmt->fetchAll();
     }
     
@@ -185,6 +348,12 @@ class SyncService
         }
         
         if ($loading['office'] === 'port_sudan') {
+            // Reset sync status to trigger retry
+            $this->db->query(
+                "UPDATE loadings SET sync_status = 'pending' WHERE id = ?",
+                [$loadingId]
+            );
+            
             return $this->syncLoadingToPortSudan($loading);
         }
         
@@ -196,7 +365,7 @@ class SyncService
      */
     public function getSyncStatistics($dateFrom = null, $dateTo = null)
     {
-        $whereClause = "WHERE 1=1";
+        $whereClause = "WHERE endpoint LIKE '/china_sync%'";
         $params = [];
         
         if ($dateFrom) {
@@ -223,7 +392,7 @@ class SyncService
     }
     
     /**
-     * Handle webhook from Port Sudan
+     * Handle Port Sudan webhook
      */
     public function handlePortSudanWebhook($data)
     {
@@ -234,91 +403,13 @@ class SyncService
         switch ($data['action']) {
             case 'container_status_updated':
                 return $this->handleContainerStatusUpdate($data['data']);
-                
             case 'bol_issued':
                 return $this->handleBolIssued($data['data']);
-                
             case 'container_arrived':
                 return $this->handleContainerArrived($data['data']);
-                
             default:
                 throw new \Exception('Unknown webhook action: ' . $data['action']);
         }
-    }
-    
-    /**
-     * Make API call to Port Sudan system
-     */
-    private function makeApiCall($endpoint, $data, $method = 'POST')
-    {
-        $url = $this->portSudanApiUrl . $endpoint;
-        
-        $ch = curl_init();
-        curl_setopt_array($ch, [
-            CURLOPT_URL => $url,
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_TIMEOUT => 30,
-            CURLOPT_HTTPHEADER => [
-                'Content-Type: application/json',
-                'Accept: application/json',
-                'X-API-Key: ' . $this->apiKey
-            ],
-            CURLOPT_SSL_VERIFYPEER => false,
-            CURLOPT_SSL_VERIFYHOST => false
-        ]);
-        
-        if ($method === 'POST') {
-            curl_setopt($ch, CURLOPT_POST, true);
-            curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
-        } elseif ($method === 'DELETE') {
-            curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'DELETE');
-            curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
-        }
-        
-        $response = curl_exec($ch);
-        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        $error = curl_error($ch);
-        curl_close($ch);
-        
-        if ($error) {
-            throw new \Exception("CURL Error: " . $error);
-        }
-        
-        $decodedResponse = json_decode($response, true);
-        
-        if ($httpCode >= 400) {
-            $errorMsg = $decodedResponse['error'] ?? "HTTP Error: $httpCode";
-            throw new \Exception($errorMsg);
-        }
-        
-        return [
-            'success' => $httpCode >= 200 && $httpCode < 300,
-            'http_code' => $httpCode,
-            'data' => $decodedResponse
-        ] + ($decodedResponse ?: []);
-    }
-    
-    /**
-     * Log sync attempt
-     */
-    private function logSyncAttempt($action, $chinaLoadingId, $containerId, $requestData, $response)
-    {
-        $this->db->query(
-            "INSERT INTO api_sync_log (
-                endpoint, method, china_loading_id, container_id, 
-                request_data, response_code, response_data, 
-                ip_address, created_at
-            ) VALUES (?, 'POST', ?, ?, ?, ?, ?, ?, NOW())",
-            [
-                "/api/china_sync/$action",
-                $chinaLoadingId,
-                $containerId,
-                json_encode($requestData),
-                $response['http_code'] ?? 0,
-                json_encode($response),
-                $_SERVER['REMOTE_ADDR'] ?? 'system'
-            ]
-        );
     }
     
     /**
@@ -337,15 +428,9 @@ class SyncService
             throw new \Exception('Loading not found: ' . $loadingId);
         }
         
-        // Update loading status based on Port Sudan data
         $updateData = [];
-        
         if (isset($data['status'])) {
             $updateData['status'] = $this->mapPortSudanStatus($data['status']);
-        }
-        
-        if (isset($data['position'])) {
-            $updateData['port_sudan_position'] = $data['position'];
         }
         
         if (!empty($updateData)) {
@@ -356,7 +441,7 @@ class SyncService
     }
     
     /**
-     * Handle BOL issued notification from Port Sudan
+     * Handle BOL issued notification
      */
     private function handleBolIssued($data)
     {
@@ -366,18 +451,18 @@ class SyncService
         
         $loadingId = $data['china_loading_id'];
         
-        $updateData = [
-            'bill_of_lading_status' => 'issued',
-            'bill_of_lading_date' => $data['bol_date'] ?? date('Y-m-d')
-        ];
+        // Log BOL issued event
+        $this->db->query(
+            "INSERT INTO loading_sync_log (loading_id, action, status, request_data) 
+            VALUES (?, 'bol_issued', 'success', ?)",
+            [$loadingId, json_encode($data)]
+        );
         
-        $this->loadingModel->update($loadingId, $updateData);
-        
-        return ['success' => true, 'message' => 'BOL status updated'];
+        return ['success' => true, 'message' => 'BOL status recorded'];
     }
     
     /**
-     * Handle container arrived notification from Port Sudan  
+     * Handle container arrived notification
      */
     private function handleContainerArrived($data)
     {
@@ -386,7 +471,6 @@ class SyncService
         }
         
         $loadingId = $data['china_loading_id'];
-        
         $updateData = [
             'status' => 'arrived',
             'arrival_date' => $data['arrival_date'] ?? date('Y-m-d')
@@ -398,15 +482,15 @@ class SyncService
     }
     
     /**
-     * Map Port Sudan status to China system status
+     * Map Port Sudan status to China status
      */
     private function mapPortSudanStatus($portSudanStatus)
     {
         $statusMap = [
             'At Port' => 'arrived',
             'Customs Cleared' => 'cleared',
-            'Delivered' => 'delivered',
-            'Empty Returned' => 'completed'
+            'Delivered' => 'cleared',
+            'Empty Returned' => 'cleared'
         ];
         
         return $statusMap[$portSudanStatus] ?? 'pending';
