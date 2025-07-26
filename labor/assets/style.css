@@ -1,0 +1,65 @@
+css
+body {
+    font-family: Tahoma, sans-serif;
+    background: #f2f2f2;
+    margin: 0;
+    padding: 0;
+    direction: rtl;
+    text-align: center;
+}
+.login-container {
+    max-width: 400px;
+    margin: 100px auto;
+    padding: 30px;
+    background: #fff;
+    box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    border-radius: 10px;
+}
+.login-container h2 {
+    margin-bottom: 20px;
+}
+.login-container input, .login-container button {
+    width: 100%;
+    padding: 12px;
+    margin: 10px 0;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+}
+.login-container button {
+    background: #2c3e50;
+    color: #fff;
+    cursor: pointer;
+}
+.error {
+    color: red;
+    font-weight: bold;
+}
+.dashboard-header {
+    padding: 20px;
+    background: #34495e;
+    color: white;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.logout-btn {
+    color: #fff;
+    text-decoration: none;
+    background: #e74c3c;
+    padding: 8px 12px;
+    border-radius: 5px;
+}
+.dashboard-content {
+    display: flex;
+    justify-content: center;
+    margin-top: 40px;
+    gap: 20px;
+}
+.card {
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 0 5px rgba(0,0,0,0.1);
+    width: 200px;
+    font-size: 18px;
+}

@@ -1,0 +1,67 @@
+{
+    "name": "labor/management-system",
+    "description": "Professional Laboratory Management System",
+    "type": "project",
+    "license": "proprietary",
+    "require": {
+        "php": "^7.4|^8.0",
+        "ext-pdo": "*",
+        "ext-pdo_mysql": "*",
+        "ext-mbstring": "*",
+        "ext-openssl": "*",
+        "ext-json": "*",
+        "vlucas/phpdotenv": "^5.5",
+        "monolog/monolog": "^2.8",
+        "respect/validation": "^2.2",
+        "phpmailer/phpmailer": "^6.7",
+        "firebase/php-jwt": "^6.3",
+        "nesbot/carbon": "^2.66",
+        "guzzlehttp/guzzle": "^7.5",
+        "predis/predis": "^2.1",
+        "symfony/http-foundation": "^6.2",
+        "symfony/routing": "^6.2",
+        "ramsey/uuid": "^4.7"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^9.5",
+        "mockery/mockery": "^1.5",
+        "fakerphp/faker": "^1.21",
+        "squizlabs/php_codesniffer": "^3.7",
+        "phpstan/phpstan": "^1.9",
+        "friendsofphp/php-cs-fixer": "^3.13"
+    },
+    "autoload": {
+        "psr-4": {
+            "App\\": "app/",
+            "Database\\": "database/"
+        },
+        "files": [
+            "app/Helpers/functions.php"
+        ]
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Tests\\": "tests/"
+        }
+    },
+    "scripts": {
+        "post-autoload-dump": [
+            "@php -r \"file_exists('.env') || copy('.env.example', '.env');\""
+        ],
+        "test": "vendor/bin/phpunit",
+        "test-coverage": "vendor/bin/phpunit --coverage-html coverage",
+        "format": "vendor/bin/php-cs-fixer fix",
+        "lint": "vendor/bin/phpcs",
+        "analyze": "vendor/bin/phpstan analyse"
+    },
+    "config": {
+        "optimize-autoloader": true,
+        "preferred-install": "dist",
+        "sort-packages": true,
+        "allow-plugins": {
+            "php-http/discovery": true
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}

@@ -1,0 +1,1 @@
+<!DOCTYPE html><html><head><link href='https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.rtl.min.css' rel='stylesheet'></head><body class='bg-light'><div class='container py-5'><h3>تذاكر الدعم</h3></div></body></html>
