@@ -7,19 +7,14 @@ class KitchenDisplayScreen extends ConsumerStatefulWidget {
   const KitchenDisplayScreen({super.key});
 
   @override
-  ConsumerState<KitchenDisplayScreen> createState() =>
-      _KitchenDisplayScreenState();
+  ConsumerState<KitchenDisplayScreen> createState() => _KitchenDisplayScreenState();
 }
 
 class _KitchenDisplayScreenState extends ConsumerState<KitchenDisplayScreen> {
   @override
   Widget build(BuildContext context) {
-    final pendingOrdersAsync = ref.watch(
-      ordersProvider(const OrdersQuery(status: OrderStatus.pending)),
-    );
-    final preparingOrdersAsync = ref.watch(
-      ordersProvider(const OrdersQuery(status: OrderStatus.preparing)),
-    );
+    final pendingOrdersAsync = ref.watch(ordersProvider(const OrdersQuery(status: OrderStatus.pending)));
+    final preparingOrdersAsync = ref.watch(ordersProvider(const OrdersQuery(status: OrderStatus.preparing)));
 
     return Scaffold(
       appBar: AppBar(
@@ -30,14 +25,8 @@ class _KitchenDisplayScreenState extends ConsumerState<KitchenDisplayScreen> {
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: () {
-              ref.refresh(
-                ordersProvider(const OrdersQuery(status: OrderStatus.pending)),
-              );
-              ref.refresh(
-                ordersProvider(
-                  const OrdersQuery(status: OrderStatus.preparing),
-                ),
-              );
+              ref.refresh(ordersProvider(const OrdersQuery(status: OrderStatus.pending)));
+              ref.refresh(ordersProvider(const OrdersQuery(status: OrderStatus.preparing)));
             },
           ),
         ],
@@ -64,19 +53,17 @@ class _KitchenDisplayScreenState extends ConsumerState<KitchenDisplayScreen> {
                 ),
                 Expanded(
                   child: pendingOrdersAsync.when(
-                    data: (orders) =>
-                        _buildOrdersList(orders, OrderStatus.pending),
-                    loading: () =>
-                        const Center(child: CircularProgressIndicator()),
+                    data: (orders) => _buildOrdersList(orders, OrderStatus.pending),
+                    loading: () => const Center(child: CircularProgressIndicator()),
                     error: (error, stack) => Center(child: Text('خطأ: $error')),
                   ),
                 ),
               ],
             ),
           ),
-
+          
           const VerticalDivider(width: 1),
-
+          
           // Preparing Orders
           Expanded(
             child: Column(
@@ -97,10 +84,8 @@ class _KitchenDisplayScreenState extends ConsumerState<KitchenDisplayScreen> {
                 ),
                 Expanded(
                   child: preparingOrdersAsync.when(
-                    data: (orders) =>
-                        _buildOrdersList(orders, OrderStatus.preparing),
-                    loading: () =>
-                        const Center(child: CircularProgressIndicator()),
+                    data: (orders) => _buildOrdersList(orders, OrderStatus.preparing),
+                    loading: () => const Center(child: CircularProgressIndicator()),
                     error: (error, stack) => Center(child: Text('خطأ: $error')),
                   ),
                 ),
@@ -119,15 +104,15 @@ class _KitchenDisplayScreenState extends ConsumerState<KitchenDisplayScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
-              currentStatus == OrderStatus.pending
-                  ? Icons.pending_actions
+              currentStatus == OrderStatus.pending 
+                  ? Icons.pending_actions 
                   : Icons.restaurant_menu,
               size: 64,
               color: Colors.grey,
             ),
             const SizedBox(height: 16),
             Text(
-              currentStatus == OrderStatus.pending
+              currentStatus == OrderStatus.pending 
                   ? 'لا توجد طلبات في الانتظار'
                   : 'لا توجد طلبات قيد التحضير',
               style: const TextStyle(fontSize: 18, color: Colors.grey),
@@ -162,10 +147,7 @@ class _KitchenDisplayScreenState extends ConsumerState<KitchenDisplayScreen> {
             Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
-                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
                     color: _getOrderTypeColor(order.orderType),
                     borderRadius: BorderRadius.circular(12),
@@ -182,10 +164,7 @@ class _KitchenDisplayScreenState extends ConsumerState<KitchenDisplayScreen> {
                 const SizedBox(width: 8),
                 if (order.tableNumber != null)
                   Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
                       color: Colors.blue,
                       borderRadius: BorderRadius.circular(12),
@@ -210,43 +189,41 @@ class _KitchenDisplayScreenState extends ConsumerState<KitchenDisplayScreen> {
               ],
             ),
             const SizedBox(height: 12),
-
+            
             // Order Items
-            ...order.items.map(
-              (item) => Padding(
-                padding: const EdgeInsets.only(bottom: 4),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 24,
-                      height: 24,
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).primaryColor,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Center(
-                        child: Text(
-                          '${item.quantity}',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 12,
-                          ),
+            ...order.items.map((item) => Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: Row(
+                children: [
+                  Container(
+                    width: 24,
+                    height: 24,
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).primaryColor,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Center(
+                      child: Text(
+                        '${item.quantity}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
                         ),
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        item.productName,
-                        style: const TextStyle(fontSize: 16),
-                      ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      item.productName,
+                      style: const TextStyle(fontSize: 16),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-            ),
-
+            )),
+            
             if (order.specialInstructions?.isNotEmpty == true) ...[
               const SizedBox(height: 8),
               Container(
@@ -267,15 +244,14 @@ class _KitchenDisplayScreenState extends ConsumerState<KitchenDisplayScreen> {
             ],
 
             const SizedBox(height: 12),
-
+            
             // Action Buttons
             Row(
               children: [
                 if (currentStatus == OrderStatus.pending) ...[
                   Expanded(
                     child: ElevatedButton(
-                      onPressed: () =>
-                          _updateOrderStatus(order, OrderStatus.preparing),
+                      onPressed: () => _updateOrderStatus(order, OrderStatus.preparing),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.orange,
                         foregroundColor: Colors.white,
@@ -286,8 +262,7 @@ class _KitchenDisplayScreenState extends ConsumerState<KitchenDisplayScreen> {
                 ] else if (currentStatus == OrderStatus.preparing) ...[
                   Expanded(
                     child: ElevatedButton(
-                      onPressed: () =>
-                          _updateOrderStatus(order, OrderStatus.ready),
+                      onPressed: () => _updateOrderStatus(order, OrderStatus.ready),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.green,
                         foregroundColor: Colors.white,
@@ -330,26 +305,22 @@ class _KitchenDisplayScreenState extends ConsumerState<KitchenDisplayScreen> {
     }
   }
 
-  Future<void> _updateOrderStatus(Order order, OrderStatus newStatus) async {
+  void _updateOrderStatus(Order order, OrderStatus newStatus) async {
     try {
       final orderService = ref.read(orderServiceProvider);
       await orderService.updateOrderStatus(order.id, newStatus);
-
+      
       // Refresh the orders
-      ref.refresh(
-        ordersProvider(const OrdersQuery(status: OrderStatus.pending)),
+      ref.refresh(ordersProvider(const OrdersQuery(status: OrderStatus.pending)));
+      ref.refresh(ordersProvider(const OrdersQuery(status: OrderStatus.preparing)));
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('تم تحديث حالة الطلب')),
       );
-      ref.refresh(
-        ordersProvider(const OrdersQuery(status: OrderStatus.preparing)),
-      );
-
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('تم تحديث حالة الطلب')));
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('خطأ في تحديث الطلب: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('خطأ في تحديث الطلب: $e')),
+      );
     }
   }
 }

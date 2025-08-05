@@ -15,9 +15,7 @@ class SyncService {
     final lastUpdate = await _localDB.getLastProductUpdate();
     final response = await ApiService.get('/products?lastUpdate=$lastUpdate');
     if (response.statusCode == 200) {
-      final products = (jsonDecode(response.body) as List)
-          .map(Product.fromJson)
-          .toList();
+      final products = (jsonDecode(response.body) as List).map((e) => Product.fromJson(e)).toList();
       await _localDB.saveProducts(products);
       await _localDB.setLastProductUpdate(DateTime.now());
     }

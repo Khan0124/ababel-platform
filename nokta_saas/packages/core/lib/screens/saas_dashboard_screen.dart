@@ -27,27 +27,30 @@ class _SaasDashboardScreenState extends State<SaasDashboardScreen> {
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as List;
         setState(() {
-          tenants = data.map(Tenant.fromJson).toList();
+          tenants = data.map((e) => Tenant.fromJson(e)).toList();
           isLoading = false;
         });
       }
     } catch (e) {
       setState(() => isLoading = false);
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('خطأ في تحميل المستأجرين: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('خطأ في تحميل المستأجرين: $e')),
+      );
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final user = context.watch<Session>().current;
+    final user = context.watch<Session>().current!;
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('لوحة تحكم SaaS'),
         actions: [
-          IconButton(icon: const Icon(Icons.refresh), onPressed: _loadTenants),
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _loadTenants,
+          ),
         ],
       ),
       body: isLoading
@@ -55,21 +58,19 @@ class _SaasDashboardScreenState extends State<SaasDashboardScreen> {
           : tenants.isEmpty
           ? const Center(child: Text('لا يوجد مستأجرين'))
           : ListView.builder(
-              itemCount: tenants.length,
-              itemBuilder: (context, index) {
-                final tenant = tenants[index];
-                return ListTile(
-                  title: Text(tenant.name),
-                  subtitle: Text(
-                    'الخطة: ${tenant.plan} - الحالة: ${tenant.status}',
-                  ),
-                  trailing: IconButton(
-                    icon: const Icon(Icons.edit),
-                    onPressed: () => _editTenant(tenant),
-                  ),
-                );
-              },
+        itemCount: tenants.length,
+        itemBuilder: (context, index) {
+          final tenant = tenants[index];
+          return ListTile(
+            title: Text(tenant.name),
+            subtitle: Text('الخطة: ${tenant.plan} - الحالة: ${tenant.status}'),
+            trailing: IconButton(
+              icon: const Icon(Icons.edit),
+              onPressed: () => _editTenant(tenant),
             ),
+          );
+        },
+      ),
       floatingActionButton: FloatingActionButton(
         onPressed: _createTenant,
         child: const Icon(Icons.add),

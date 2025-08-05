@@ -7,37 +7,38 @@ class OrdersScreen extends StatelessWidget {
 
   Future<List<Map<String, Object?>>> _load() async {
     if (!kIsWeb) {
-      return LocalDB().allOrders();
+      return await LocalDB().allOrders();
     } else {
       return [];
     }
   }
 
   @override
-  Widget build(BuildContext context) =>
-      FutureBuilder<List<Map<String, Object?>>>(
-        future: _load(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          } else if (snapshot.hasError) {
-            return Center(child: Text('حدث خطأ: ${snapshot.error}'));
-          } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-            return const Center(child: Text('لا توجد طلبات.'));
-          }
+  Widget build(BuildContext context) {
+    return FutureBuilder<List<Map<String, Object?>>>(
+      future: _load(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        } else if (snapshot.hasError) {
+          return Center(child: Text('حدث خطأ: ${snapshot.error}'));
+        } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+          return const Center(child: Text('لا توجد طلبات.'));
+        }
 
-          final orders = snapshot.data!;
+        final orders = snapshot.data!;
 
-          return ListView.builder(
-            itemCount: orders.length,
-            itemBuilder: (context, index) {
-              final order = orders[index];
-              return ListTile(
-                title: Text('طلب رقم ${order['id']}'),
-                subtitle: Text('الإجمالي: ${order['total']}'),
-              );
-            },
-          );
-        },
-      );
+        return ListView.builder(
+          itemCount: orders.length,
+          itemBuilder: (context, index) {
+            final order = orders[index];
+            return ListTile(
+              title: Text('طلب رقم ${order['id']}'),
+              subtitle: Text('الإجمالي: ${order['total']}'),
+            );
+          },
+        );
+      },
+    );
+  }
 }

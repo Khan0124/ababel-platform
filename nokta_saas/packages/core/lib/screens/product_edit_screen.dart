@@ -49,9 +49,9 @@ class _ProductEditScreenState extends State<ProductEditScreen> {
     if (success) {
       Navigator.pop(context, true); // ترجع نجاح للحذف لو حبيت تستخدمها
     } else {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('فشل في إضافة المنتج')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('فشل في إضافة المنتج')),
+      );
     }
   }
 
@@ -64,34 +64,36 @@ class _ProductEditScreenState extends State<ProductEditScreen> {
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('إضافة منتج')),
-    body: Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        children: [
-          TextField(
-            controller: nameController,
-            decoration: const InputDecoration(labelText: 'الاسم'),
-          ),
-          TextField(
-            controller: descController,
-            decoration: const InputDecoration(labelText: 'الوصف'),
-          ),
-          TextField(
-            controller: priceController,
-            decoration: const InputDecoration(labelText: 'السعر'),
-            keyboardType: TextInputType.number,
-          ),
-          const SizedBox(height: 20),
-          _isSaving
-              ? const CircularProgressIndicator()
-              : ElevatedButton(
-                  onPressed: _saveProduct,
-                  child: const Text('حفظ'),
-                ),
-        ],
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('إضافة منتج')),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          children: [
+            TextField(
+              controller: nameController,
+              decoration: const InputDecoration(labelText: 'الاسم'),
+            ),
+            TextField(
+              controller: descController,
+              decoration: const InputDecoration(labelText: 'الوصف'),
+            ),
+            TextField(
+              controller: priceController,
+              decoration: const InputDecoration(labelText: 'السعر'),
+              keyboardType: TextInputType.number,
+            ),
+            const SizedBox(height: 20),
+            _isSaving
+                ? const CircularProgressIndicator()
+                : ElevatedButton(
+              onPressed: _saveProduct,
+              child: const Text('حفظ'),
+            ),
+          ],
+        ),
       ),
-    ),
-  );
+    );
+  }
 }

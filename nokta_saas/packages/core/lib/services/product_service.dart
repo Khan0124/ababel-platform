@@ -20,7 +20,10 @@ class ProductService {
     try {
       if (kIsWeb) {
         // Use API for web
-        final queryParams = <String, dynamic>{'page': page, 'limit': limit};
+        final queryParams = <String, dynamic>{
+          'page': page,
+          'limit': limit,
+        };
 
         if (categoryId != null) queryParams['category_id'] = categoryId;
         if (isAvailable != null) queryParams['is_available'] = isAvailable;
@@ -28,12 +31,9 @@ class ProductService {
           queryParams['search'] = searchQuery;
         }
 
-        final response = await _apiService.get(
-          '/products',
-          queryParams: queryParams,
-        );
+        final response = await _apiService.get('/products', queryParams: queryParams);
         final List<dynamic> data = response.data['data'];
-
+        
         return data.map((json) => Product.fromJson(json)).toList();
       } else {
         // Use local DB for mobile
@@ -63,10 +63,7 @@ class ProductService {
   Future<Product> createProduct(Product product) async {
     try {
       if (kIsWeb) {
-        final response = await _apiService.post(
-          '/products',
-          data: product.toJson(),
-        );
+        final response = await _apiService.post('/products', data: product.toJson());
         return Product.fromJson(response.data);
       } else {
         await _localDB.insertProduct(product);
@@ -81,10 +78,7 @@ class ProductService {
   Future<Product> updateProduct(Product product) async {
     try {
       if (kIsWeb) {
-        final response = await _apiService.put(
-          '/products/${product.id}',
-          data: product.toJson(),
-        );
+        final response = await _apiService.put('/products/${product.id}', data: product.toJson());
         return Product.fromJson(response.data);
       } else {
         await _localDB.updateProduct(product);
@@ -114,7 +108,7 @@ class ProductService {
       if (kIsWeb) {
         final response = await _apiService.get('/categories');
         final List<dynamic> data = response.data['data'];
-
+        
         return data.map((json) => Category.fromJson(json)).toList();
       } else {
         // Return default categories for local DB
@@ -154,24 +148,16 @@ class ProductService {
   Future<List<Product>> searchProducts(String query) async {
     try {
       if (kIsWeb) {
-        final response = await _apiService.get(
-          '/products/search',
-          queryParams: {'q': query},
-        );
+        final response = await _apiService.get('/products/search', queryParams: {'q': query});
         final List<dynamic> data = response.data['data'];
-
+        
         return data.map((json) => Product.fromJson(json)).toList();
       } else {
         final allProducts = await _localDB.allProducts();
-        return allProducts
-            .where(
-              (product) =>
-                  product.name.toLowerCase().contains(query.toLowerCase()) ||
-                  product.description.toLowerCase().contains(
-                    query.toLowerCase(),
-                  ),
-            )
-            .toList();
+        return allProducts.where((product) => 
+          product.name.toLowerCase().contains(query.toLowerCase()) ||
+          product.description.toLowerCase().contains(query.toLowerCase())
+        ).toList();
       }
     } catch (e) {
       throw Exception('Failed to search products: $e');
@@ -179,16 +165,11 @@ class ProductService {
   }
 
   // Update product availability
-  Future<void> updateProductAvailability(
-    int productId,
-    bool isAvailable,
-  ) async {
+  Future<void> updateProductAvailability(int productId, bool isAvailable) async {
     try {
       if (kIsWeb) {
-        await _apiService.put(
-          '/products/$productId/availability',
-          data: {'is_available': isAvailable},
-        );
+        await _apiService.put('/products/$productId/availability', 
+          data: {'is_available': isAvailable});
       } else {
         // Handle local DB update
         final products = await _localDB.allProducts();
@@ -203,37 +184,39 @@ class ProductService {
 }
 
 // Providers
-final productServiceProvider = Provider<ProductService>(
-  (ref) => ProductService(),
-);
+final productServiceProvider = Provider<ProductService>((ref) {
+  return ProductService();
+});
 
-final productsProvider = FutureProvider.autoDispose
-    .family<List<Product>, ProductsQuery>((ref, query) {
-      final productService = ref.watch(productServiceProvider);
-      return productService.getProducts(
-        categoryId: query.categoryId,
-        isAvailable: query.isAvailable,
-        searchQuery: query.searchQuery,
-        page: query.page,
-        limit: query.limit,
-      );
-    });
+final productsProvider = FutureProvider.autoDispose.family<List<Product>, ProductsQuery>((ref, query) {
+  final productService = ref.watch(productServiceProvider);
+  return productService.getProducts(
+    categoryId: query.categoryId,
+    isAvailable: query.isAvailable,
+    searchQuery: query.searchQuery,
+    page: query.page,
+    limit: query.limit,
+  );
+});
 
 final categoriesProvider = FutureProvider.autoDispose<List<Category>>((ref) {
   final productService = ref.watch(productServiceProvider);
   return productService.getCategories();
 });
 
-final productProvider = FutureProvider.autoDispose.family<Product, int>((
-  ref,
-  id,
-) {
+final productProvider = FutureProvider.autoDispose.family<Product, int>((ref, id) {
   final productService = ref.watch(productServiceProvider);
   return productService.getProduct(id);
 });
 
 // Data classes
 class ProductsQuery {
+  final int? categoryId;
+  final bool? isAvailable;
+  final String? searchQuery;
+  final int page;
+  final int limit;
+
   const ProductsQuery({
     this.categoryId,
     this.isAvailable,
@@ -241,11 +224,6 @@ class ProductsQuery {
     this.page = 1,
     this.limit = 50,
   });
-  final int? categoryId;
-  final bool? isAvailable;
-  final String? searchQuery;
-  final int page;
-  final int limit;
 
   @override
   bool operator ==(Object other) =>

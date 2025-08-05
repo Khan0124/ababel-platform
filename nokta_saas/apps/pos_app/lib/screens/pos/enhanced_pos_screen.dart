@@ -16,12 +16,12 @@ class EnhancedPOSScreen extends ConsumerStatefulWidget {
 class _EnhancedPOSScreenState extends ConsumerState<EnhancedPOSScreen> {
   int _selectedCategoryId = 0;
   OrderType _orderType = OrderType.dineIn;
-
+  
   @override
   Widget build(BuildContext context) {
     final cartItems = ref.watch(cartProvider);
     final cartTotals = ref.watch(cartTotalsProvider);
-
+    
     return Scaffold(
       appBar: AppBar(
         title: const Text('نقطة البيع'),
@@ -30,8 +30,7 @@ class _EnhancedPOSScreenState extends ConsumerState<EnhancedPOSScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
-            onPressed: () =>
-                ref.refresh(productsProvider(const ProductsQuery())),
+            onPressed: () => ref.refresh(productsProvider(const ProductsQuery())),
           ),
         ],
       ),
@@ -44,32 +43,38 @@ class _EnhancedPOSScreenState extends ConsumerState<EnhancedPOSScreen> {
               children: [
                 // Category Tabs
                 _buildCategoryTabs(),
-
+                
                 // Product Grid
-                Expanded(child: _buildProductGrid()),
+                Expanded(
+                  child: _buildProductGrid(),
+                ),
               ],
             ),
           ),
-
+          
           // Right Panel - Cart & Actions
           Expanded(
             flex: 2,
             child: Container(
               color: Theme.of(context).cardColor,
               decoration: BoxDecoration(
-                border: Border(left: BorderSide(color: Colors.grey.shade300)),
+                border: Border(
+                  left: BorderSide(color: Colors.grey.shade300),
+                ),
               ),
               child: Column(
                 children: [
                   // Order Type Selection
                   _buildOrderTypeSelector(),
-
+                  
                   // Cart Items
-                  Expanded(child: _buildCartItems(cartItems)),
-
+                  Expanded(
+                    child: _buildCartItems(cartItems),
+                  ),
+                  
                   // Cart Summary
                   _buildCartSummary(cartTotals),
-
+                  
                   // Action Buttons
                   _buildActionButtons(cartItems),
                 ],
@@ -83,7 +88,7 @@ class _EnhancedPOSScreenState extends ConsumerState<EnhancedPOSScreen> {
 
   Widget _buildCategoryTabs() {
     final categoriesAsync = ref.watch(categoriesProvider);
-
+    
     return Container(
       height: 60,
       padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -104,7 +109,7 @@ class _EnhancedPOSScreenState extends ConsumerState<EnhancedPOSScreen> {
                 ),
               );
             }
-
+            
             final category = categories[index - 1];
             return Padding(
               padding: const EdgeInsets.symmetric(horizontal: 4),
@@ -112,8 +117,7 @@ class _EnhancedPOSScreenState extends ConsumerState<EnhancedPOSScreen> {
                 label: Text(category.name),
                 selected: _selectedCategoryId == category.id,
                 onSelected: (selected) {
-                  if (selected)
-                    setState(() => _selectedCategoryId = category.id);
+                  if (selected) setState(() => _selectedCategoryId = category.id);
                 },
               ),
             );
@@ -131,7 +135,7 @@ class _EnhancedPOSScreenState extends ConsumerState<EnhancedPOSScreen> {
       isAvailable: true,
     );
     final productsAsync = ref.watch(productsProvider(query));
-
+    
     return productsAsync.when(
       data: (products) => GridView.builder(
         padding: const EdgeInsets.all(8),
@@ -152,106 +156,106 @@ class _EnhancedPOSScreenState extends ConsumerState<EnhancedPOSScreen> {
     );
   }
 
-  Widget _buildProductCard(Product product) => Card(
-    child: InkWell(
-      onTap: () => _addToCart(product),
+  Widget _buildProductCard(Product product) {
+    return Card(
+      child: InkWell(
+        onTap: () => _addToCart(product),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(
+              flex: 3,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade200,
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
+                ),
+                child: product.imageUrl != null
+                    ? ClipRRect(
+                        borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
+                        child: Image.network(
+                          product.imageUrl!,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) => 
+                              const Icon(Icons.restaurant, size: 40),
+                        ),
+                      )
+                    : const Icon(Icons.restaurant, size: 40),
+              ),
+            ),
+            Expanded(
+              flex: 2,
+              child: Padding(
+                padding: const EdgeInsets.all(8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      product.name,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const Spacer(),
+                    Text(
+                      '${product.price.toStringAsFixed(2)} ر.س',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: Theme.of(context).primaryColor,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildOrderTypeSelector() {
+    return Container(
+      padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Expanded(
-            flex: 3,
-            child: Container(
-              decoration: BoxDecoration(
-                color: Colors.grey.shade200,
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(8),
-                ),
-              ),
-              child: product.imageUrl != null
-                  ? ClipRRect(
-                      borderRadius: const BorderRadius.vertical(
-                        top: Radius.circular(8),
-                      ),
-                      child: Image.network(
-                        product.imageUrl!,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) =>
-                            const Icon(Icons.restaurant, size: 40),
-                      ),
-                    )
-                  : const Icon(Icons.restaurant, size: 40),
-            ),
+          const Text(
+            'نوع الطلب',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
           ),
-          Expanded(
-            flex: 2,
-            child: Padding(
-              padding: const EdgeInsets.all(8),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    product.name,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const Spacer(),
-                  Text(
-                    '${product.price.toStringAsFixed(2)} ر.س',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                      color: Theme.of(context).primaryColor,
-                    ),
-                  ),
-                ],
+          const SizedBox(height: 8),
+          SegmentedButton<OrderType>(
+            segments: const [
+              ButtonSegment(
+                value: OrderType.dineIn,
+                label: Text('محلي'),
+                icon: Icon(Icons.restaurant),
               ),
-            ),
+              ButtonSegment(
+                value: OrderType.takeaway,
+                label: Text('خارجي'),
+                icon: Icon(Icons.shopping_bag),
+              ),
+              ButtonSegment(
+                value: OrderType.delivery,
+                label: Text('توصيل'),
+                icon: Icon(Icons.delivery_dining),
+              ),
+            ],
+            selected: {_orderType},
+            onSelectionChanged: (types) {
+              setState(() => _orderType = types.first);
+            },
           ),
         ],
       ),
-    ),
-  );
-
-  Widget _buildOrderTypeSelector() => Container(
-    padding: const EdgeInsets.all(16),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        const Text(
-          'نوع الطلب',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 8),
-        SegmentedButton<OrderType>(
-          segments: const [
-            ButtonSegment(
-              value: OrderType.dineIn,
-              label: Text('محلي'),
-              icon: Icon(Icons.restaurant),
-            ),
-            ButtonSegment(
-              value: OrderType.takeaway,
-              label: Text('خارجي'),
-              icon: Icon(Icons.shopping_bag),
-            ),
-            ButtonSegment(
-              value: OrderType.delivery,
-              label: Text('توصيل'),
-              icon: Icon(Icons.delivery_dining),
-            ),
-          ],
-          selected: {_orderType},
-          onSelectionChanged: (types) {
-            setState(() => _orderType = types.first);
-          },
-        ),
-      ],
-    ),
-  );
+    );
+  }
 
   Widget _buildCartItems(List<CartItem> cartItems) {
     if (cartItems.isEmpty) {
@@ -265,7 +269,10 @@ class _EnhancedPOSScreenState extends ConsumerState<EnhancedPOSScreen> {
               'السلة فارغة',
               style: TextStyle(fontSize: 18, color: Colors.grey),
             ),
-            Text('اضغط على منتج لإضافته', style: TextStyle(color: Colors.grey)),
+            Text(
+              'اضغط على منتج لإضافته',
+              style: TextStyle(color: Colors.grey),
+            ),
           ],
         ),
       );
@@ -281,138 +288,142 @@ class _EnhancedPOSScreenState extends ConsumerState<EnhancedPOSScreen> {
     );
   }
 
-  Widget _buildCartItem(CartItem item) => Card(
-    margin: const EdgeInsets.only(bottom: 8),
-    child: Padding(
-      padding: const EdgeInsets.all(12),
+  Widget _buildCartItem(CartItem item) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    item.product.name,
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.delete, color: Colors.red),
+                  onPressed: () => _removeFromCart(item.product),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.remove),
+                  onPressed: () => _updateQuantity(item.product, item.quantity - 1),
+                ),
+                Text('${item.quantity}', style: const TextStyle(fontSize: 16)),
+                IconButton(
+                  icon: const Icon(Icons.add),
+                  onPressed: () => _updateQuantity(item.product, item.quantity + 1),
+                ),
+                const Spacer(),
+                Text(
+                  '${item.totalPrice.toStringAsFixed(2)} ر.س',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Theme.of(context).primaryColor,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCartSummary(CartTotals totals) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        border: Border(top: BorderSide(color: Colors.grey.shade300)),
+      ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Expanded(
-                child: Text(
-                  item.product.name,
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                ),
-              ),
-              IconButton(
-                icon: const Icon(Icons.delete, color: Colors.red),
-                onPressed: () => _removeFromCart(item.product),
-              ),
+              const Text('المجموع الجزئي:'),
+              Text('${totals.subtotal.toStringAsFixed(2)} ر.س'),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 4),
           Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              IconButton(
-                icon: const Icon(Icons.remove),
-                onPressed: () =>
-                    _updateQuantity(item.product, item.quantity - 1),
+              const Text('الضريبة:'),
+              Text('${totals.tax.toStringAsFixed(2)} ر.س'),
+            ],
+          ),
+          const Divider(),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'الإجمالي:',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
-              Text('${item.quantity}', style: const TextStyle(fontSize: 16)),
-              IconButton(
-                icon: const Icon(Icons.add),
-                onPressed: () =>
-                    _updateQuantity(item.product, item.quantity + 1),
-              ),
-              const Spacer(),
               Text(
-                '${item.totalPrice.toStringAsFixed(2)} ر.س',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: Theme.of(context).primaryColor,
-                ),
+                '${totals.total.toStringAsFixed(2)} ر.س',
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
             ],
           ),
         ],
       ),
-    ),
-  );
+    );
+  }
 
-  Widget _buildCartSummary(CartTotals totals) => Container(
-    padding: const EdgeInsets.all(16),
-    decoration: BoxDecoration(
-      color: Colors.grey.shade50,
-      border: Border(top: BorderSide(color: Colors.grey.shade300)),
-    ),
-    child: Column(
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Text('المجموع الجزئي:'),
-            Text('${totals.subtotal.toStringAsFixed(2)} ر.س'),
-          ],
-        ),
-        const SizedBox(height: 4),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Text('الضريبة:'),
-            Text('${totals.tax.toStringAsFixed(2)} ر.س'),
-          ],
-        ),
-        const Divider(),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Text(
-              'الإجمالي:',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            Text(
-              '${totals.total.toStringAsFixed(2)} ر.س',
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-          ],
-        ),
-      ],
-    ),
-  );
-
-  Widget _buildActionButtons(List<CartItem> cartItems) => Padding(
-    padding: const EdgeInsets.all(16),
-    child: Column(
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: OutlinedButton.icon(
-                onPressed: () => _clearCart(),
-                icon: const Icon(Icons.clear),
-                label: const Text('مسح السلة'),
+  Widget _buildActionButtons(List<CartItem> cartItems) {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () => _clearCart(),
+                  icon: const Icon(Icons.clear),
+                  label: const Text('مسح السلة'),
+                ),
               ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: OutlinedButton.icon(
-                onPressed: cartItems.isEmpty ? null : () => _holdOrder(),
-                icon: const Icon(Icons.pause),
-                label: const Text('حفظ'),
+              const SizedBox(width: 8),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: cartItems.isEmpty ? null : () => _holdOrder(),
+                  icon: const Icon(Icons.pause),
+                  label: const Text('حفظ'),
+                ),
               ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        SizedBox(
-          width: double.infinity,
-          height: 56,
-          child: ElevatedButton.icon(
-            onPressed: cartItems.isEmpty ? null : () => _processPayment(),
-            icon: const Icon(Icons.payment),
-            label: const Text('دفع'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Theme.of(context).primaryColor,
-              foregroundColor: Colors.white,
+            ],
+          ),
+          const SizedBox(height: 8),
+          SizedBox(
+            width: double.infinity,
+            height: 56,
+            child: ElevatedButton.icon(
+              onPressed: cartItems.isEmpty ? null : () => _processPayment(),
+              icon: const Icon(Icons.payment),
+              label: const Text('دفع'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Theme.of(context).primaryColor,
+                foregroundColor: Colors.white,
+              ),
             ),
           ),
-        ),
-      ],
-    ),
-  );
+        ],
+      ),
+    );
+  }
 
   void _addToCart(Product product) {
     ref.read(cartProvider.notifier).addItem(product);
@@ -442,9 +453,9 @@ class _EnhancedPOSScreenState extends ConsumerState<EnhancedPOSScreen> {
 
   void _holdOrder() {
     // TODO: Implement hold order functionality
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('تم حفظ الطلب')));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('تم حفظ الطلب')),
+    );
   }
 
   void _processPayment() {

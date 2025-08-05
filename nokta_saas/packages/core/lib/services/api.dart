@@ -6,45 +6,41 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'security_service.dart';
 
 class ApiService {
-  static const String _baseUrl = kDebugMode
-      ? 'http://localhost:3000'
+  static const String _baseUrl = kDebugMode 
+      ? 'http://localhost:3000' 
       : 'https://api.nokta-pos.com';
-
+  
   static late Dio _dio;
   static const FlutterSecureStorage _storage = FlutterSecureStorage();
-
+  
   static String? _authToken;
   static String? _tenantId;
-
+  
   static void initialize() {
-    _dio = Dio(
-      BaseOptions(
-        baseUrl: _baseUrl,
-        connectTimeout: const Duration(seconds: 30),
-        receiveTimeout: const Duration(seconds: 30),
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-      ),
-    );
-
+    _dio = Dio(BaseOptions(
+      baseUrl: _baseUrl,
+      connectTimeout: Duration(seconds: 30),
+      receiveTimeout: Duration(seconds: 30),
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+    ));
+    
     // Add interceptors
     _dio.interceptors.add(AuthInterceptor());
     _dio.interceptors.add(SecurityInterceptor());
-
+    
     if (kDebugMode) {
-      _dio.interceptors.add(
-        LogInterceptor(requestBody: true, responseBody: true),
-      );
+      _dio.interceptors.add(LogInterceptor(
+        requestBody: true,
+        responseBody: true,
+      ));
     }
   }
 
   // Modern API methods using Dio
-  static Future<Response> get(
-    String endpoint, {
-    Map<String, dynamic>? queryParams,
-  }) async {
+  static Future<Response> get(String endpoint, {Map<String, dynamic>? queryParams}) async {
     try {
       return await _dio.get(endpoint, queryParameters: queryParams);
     } catch (e) {
@@ -149,12 +145,12 @@ class SecurityInterceptor extends Interceptor {
     // Add security headers
     options.headers['X-Requested-With'] = 'XMLHttpRequest';
     options.headers['X-Client-Version'] = '1.0.0';
-
+    
     // Validate and sanitize data
     if (options.data is Map<String, dynamic>) {
       options.data = _sanitizeRequestData(options.data);
     }
-
+    
     handler.next(options);
   }
 
@@ -172,9 +168,10 @@ class SecurityInterceptor extends Interceptor {
 }
 
 class ApiException implements Exception {
-  ApiException(this.message, this.statusCode);
   final String message;
   final int statusCode;
+
+  ApiException(this.message, this.statusCode);
 
   @override
   String toString() => 'ApiException: $message (Status: $statusCode)';

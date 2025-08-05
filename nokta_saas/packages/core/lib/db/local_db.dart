@@ -9,9 +9,9 @@ import '../models/cart_item.dart';
 import '../services/security_service.dart';
 
 class LocalDB {
+  static final LocalDB _instance = LocalDB._internal();
   factory LocalDB() => _instance;
   LocalDB._internal();
-  static final LocalDB _instance = LocalDB._internal();
 
   Database? _db;
 
@@ -102,7 +102,7 @@ class LocalDB {
   Future<List<Product>> allProducts() async {
     final d = await db;
     final maps = await d.query('products', orderBy: 'id DESC');
-    return maps.map(Product.fromMap).toList();
+    return maps.map((m) => Product.fromMap(m)).toList();
   }
 
   Future<int> insertProduct(Product p) async {
@@ -124,10 +124,10 @@ class LocalDB {
 
   Future<User?> login(String username, String password) async {
     final d = await db;
-
+    
     // Validate and sanitize input
     final cleanUsername = SecurityService.sanitizeInput(username.trim());
-    if (!SecurityService.validateInput(cleanUsername) ||
+    if (!SecurityService.validateInput(cleanUsername) || 
         !SecurityService.validateInput(password)) {
       return null;
     }
@@ -139,36 +139,36 @@ class LocalDB {
       whereArgs: [cleanUsername],
       limit: 1,
     );
-
+    
     if (res.isEmpty) return null;
-
+    
     final userMap = res.first;
-
+    
     // Check if account is locked
     if (userMap['locked_until'] != null) {
-      final lockedUntil = DateTime.parse(userMap['locked_until']! as String);
+      final lockedUntil = DateTime.parse(userMap['locked_until'] as String);
       if (DateTime.now().isBefore(lockedUntil)) {
         return null; // Account is locked
       }
     }
 
     // Verify password
-    final storedHash = userMap['password_hash']! as String;
+    final storedHash = userMap['password_hash'] as String;
     if (!SecurityService.verifyPassword(password, storedHash)) {
       // Increment failed login attempts
-      await _incrementFailedLogins(userMap['id']! as int);
+      await _incrementFailedLogins(userMap['id'] as int);
       return null;
     }
 
     // Reset failed login attempts and update last login
-    await _resetFailedLogins(userMap['id']! as int);
-
+    await _resetFailedLogins(userMap['id'] as int);
+    
     return User.fromMap(userMap);
   }
 
   Future<void> _incrementFailedLogins(int userId) async {
     final d = await db;
-
+    
     // Get current failed attempts
     final res = await d.query(
       'users',
@@ -176,19 +176,17 @@ class LocalDB {
       where: 'id = ?',
       whereArgs: [userId],
     );
-
+    
     if (res.isNotEmpty) {
-      final currentAttempts = res.first['failed_login_attempts']! as int;
+      final currentAttempts = res.first['failed_login_attempts'] as int;
       final newAttempts = currentAttempts + 1;
-
+      
       // Lock account if too many failed attempts (5 attempts)
       String? lockedUntil;
       if (newAttempts >= 5) {
-        lockedUntil = DateTime.now()
-            .add(const Duration(minutes: 30))
-            .toIso8601String();
+        lockedUntil = DateTime.now().add(Duration(minutes: 30)).toIso8601String();
       }
-
+      
       await d.update(
         'users',
         {

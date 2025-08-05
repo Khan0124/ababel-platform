@@ -7,10 +7,8 @@ class CartNotifier extends StateNotifier<List<CartItem>> {
 
   // Add item to cart
   void addItem(Product product, {int quantity = 1}) {
-    final existingIndex = state.indexWhere(
-      (item) => item.product.id == product.id,
-    );
-
+    final existingIndex = state.indexWhere((item) => item.product.id == product.id);
+    
     if (existingIndex >= 0) {
       // Update existing item quantity
       final existingItem = state[existingIndex];
@@ -19,7 +17,7 @@ class CartNotifier extends StateNotifier<List<CartItem>> {
         quantity: newQuantity,
         totalPrice: product.price * newQuantity,
       );
-
+      
       state = [
         ...state.sublist(0, existingIndex),
         updatedItem,
@@ -51,7 +49,7 @@ class CartNotifier extends StateNotifier<List<CartItem>> {
         quantity: quantity,
         totalPrice: item.product.price * quantity,
       );
-
+      
       state = [
         ...state.sublist(0, index),
         updatedItem,
@@ -66,7 +64,7 @@ class CartNotifier extends StateNotifier<List<CartItem>> {
     if (index >= 0) {
       final item = state[index];
       final updatedItem = item.copyWith(notes: notes);
-
+      
       state = [
         ...state.sublist(0, index),
         updatedItem,
@@ -82,13 +80,10 @@ class CartNotifier extends StateNotifier<List<CartItem>> {
 
   // Get cart totals
   CartTotals get totals {
-    final subtotal = state.fold<double>(
-      0,
-      (sum, item) => sum + item.totalPrice,
-    );
+    final subtotal = state.fold<double>(0, (sum, item) => sum + item.totalPrice);
     final tax = subtotal * 0.15; // 15% tax
     final total = subtotal + tax;
-
+    
     return CartTotals(
       subtotal: subtotal,
       tax: tax,
@@ -98,36 +93,36 @@ class CartNotifier extends StateNotifier<List<CartItem>> {
   }
 
   // Check if product is in cart
-  bool isInCart(int productId) =>
-      state.any((item) => item.product.id == productId);
+  bool isInCart(int productId) {
+    return state.any((item) => item.product.id == productId);
+  }
 
   // Get item quantity in cart
   int getQuantity(int productId) {
-    final item = state
-        .where((item) => item.product.id == productId)
-        .firstOrNull;
+    final item = state.where((item) => item.product.id == productId).firstOrNull;
     return item?.quantity ?? 0;
   }
 }
 
 // Cart totals model
 class CartTotals {
+  final double subtotal;
+  final double tax;
+  final double total;
+  final int itemCount;
+
   CartTotals({
     required this.subtotal,
     required this.tax,
     required this.total,
     required this.itemCount,
   });
-  final double subtotal;
-  final double tax;
-  final double total;
-  final int itemCount;
 }
 
 // Providers
-final cartProvider = StateNotifierProvider<CartNotifier, List<CartItem>>(
-  (ref) => CartNotifier(),
-);
+final cartProvider = StateNotifierProvider<CartNotifier, List<CartItem>>((ref) {
+  return CartNotifier();
+});
 
 final cartTotalsProvider = Provider<CartTotals>((ref) {
   final cart = ref.watch(cartProvider.notifier);
