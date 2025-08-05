@@ -1,247 +1,150 @@
 <?php
+// تسجيل دخول آمن للإدارة
 session_start();
+include '../includes/config.php';
+include '../includes/session_manager.php';
 
-// Include configuration
-require_once __DIR__ . '/../includes/config.php';
-require_once __DIR__ . '/../includes/csrf.php';
-
-// If already logged in, redirect to dashboard
+// إعادة التوجيه إذا كان مسجل دخول بالفعل
 if (isset($_SESSION['admin_id'])) {
-    header("Location: /admin/dashboard");
+    header("Location: dashboard.php");
     exit;
 }
 
+$sessionManager = new SessionManager($conn);
+$security = new SecurityManager($conn);
+
 $error = '';
+$success = '';
 
-// Handle form submission
-if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-    // Verify CSRF token
-    if (!isset($_POST['csrf_token']) || !verifyCSRFToken($_POST['csrf_token'])) {
-        $error = 'خطأ في الأمان. يرجى المحاولة مرة أخرى';
-    } else {
-        $email = filter_var($_POST['email'], FILTER_SANITIZE_EMAIL);
-        $password = $_POST['password'];
-
-        // Check admin credentials
-        $stmt = $conn->prepare("SELECT * FROM admins WHERE email = ? LIMIT 1");
-        $stmt->bind_param("s", $email);
-        $stmt->execute();
-        $result = $stmt->get_result();
-
-        if ($result->num_rows > 0) {
-            $admin = $result->fetch_assoc();
-            if (password_verify($password, $admin['password'])) {
-                // Login successful
-                $_SESSION['admin_id'] = $admin['id'];
-                $_SESSION['admin_name'] = $admin['name'];
-                header("Location: /admin/dashboard");
-                exit;
-            } else {
-                $error = 'كلمة المرور غير صحيحة';
-            }
-        } else {
-            $error = 'البريد الإلكتروني غير مسجل';
-        }
+// معالجة رسائل النظام
+if (isset($_GET['error'])) {
+    switch ($_GET['error']) {
+        case 'session_expired':
+            $error = 'انتهت صلاحية الجلسة، يرجى تسجيل الدخول مرة أخرى';
+            break;
+        case 'unauthorized':
+            $error = 'غير مصرح لك بالوصول';
+            break;
     }
 }
+
+if (isset($_GET['success']) && $_GET['success'] === 'logout') {
+    $success = 'تم تسجيل الخروج بنجاح';
+}
+
+if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+    try {
+        // التحقق من CSRF Token
+        if (!isset($_POST['csrf_token']) || !$security->verifyCSRFToken($_POST['csrf_token'])) {
+            throw new Exception('رمز الأمان غير صحيح');
+        }
+        
+        $email = $security->sanitizeInput($_POST['email']);
+        $password = $_POST['password'];
+        
+        // التحقق من المدخلات
+        if (empty($email) || empty($password)) {
+            throw new Exception('يرجى ملء جميع الحقول المطلوبة');
+        }
+        
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            throw new Exception('صيغة البريد الإلكتروني غير صحيحة');
+        }
+        
+        // محاولة تسجيل الدخول
+        $login_result = $sessionManager->adminLogin($email, $password);
+        
+        if ($login_result['success']) {
+            header("Location: dashboard.php");
+            exit;
+        }
+        
+    } catch (Exception $e) {
+        $error = $e->getMessage();
+    }
+}
+
+// إنشاء CSRF Token للنموذج
+$csrf_token = $security->generateCSRFToken();
 ?>
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
+    <title>تسجيل دخول المشرف</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>تسجيل دخول المشرف - نظام إدارة المعامل</title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.rtl.min.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="../assets/auth-modern.css">
     <style>
-        body {
-            background-color: #f8f9fa;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-            margin: 0;
-        }
-        .login-container {
-            width: 100%;
-            max-width: 400px;
-            padding: 15px;
-        }
-        .login-card {
-            background: white;
-            border-radius: 10px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            padding: 40px;
-        }
-        .login-header {
-            text-align: center;
-            margin-bottom: 30px;
-        }
-        .login-icon {
-            font-size: 60px;
-            color: #007bff;
-            margin-bottom: 20px;
-        }
-        .login-title {
-            font-size: 24px;
-            font-weight: bold;
-            color: #333;
-            margin-bottom: 10px;
-        }
-        .login-subtitle {
-            color: #6c757d;
-            font-size: 14px;
-        }
-        .form-label {
-            font-weight: 600;
-            color: #495057;
-            margin-bottom: 8px;
-        }
-        .form-control {
-            border-radius: 8px;
-            padding: 12px 15px;
-            font-size: 14px;
-            border: 1px solid #ced4da;
-        }
-        .form-control:focus {
-            border-color: #007bff;
-            box-shadow: 0 0 0 0.2rem rgba(0,123,255,.25);
-        }
-        .btn-login {
-            width: 100%;
-            padding: 12px;
-            font-size: 16px;
-            font-weight: 600;
-            border-radius: 8px;
-            margin-top: 20px;
-        }
-        .password-toggle {
-            position: absolute;
-            left: 10px;
-            top: 50%;
-            transform: translateY(-50%);
-            background: none;
-            border: none;
-            color: #6c757d;
-            cursor: pointer;
-        }
-        .password-toggle:hover {
-            color: #495057;
-        }
-        .password-wrapper {
-            position: relative;
-        }
-        .alert {
-            border-radius: 8px;
-            padding: 12px 15px;
-            margin-bottom: 20px;
-            font-size: 14px;
-        }
-        .form-check {
-            margin-top: 15px;
-        }
-        .forgot-link {
-            float: left;
-            font-size: 14px;
-            color: #007bff;
-            text-decoration: none;
-            margin-top: 15px;
-        }
-        .forgot-link:hover {
-            text-decoration: underline;
-        }
-        .login-footer {
-            text-align: center;
-            margin-top: 30px;
-            padding-top: 20px;
-            border-top: 1px solid #e9ecef;
-            font-size: 14px;
-            color: #6c757d;
-        }
-        .login-footer a {
-            color: #007bff;
-            text-decoration: none;
-        }
-        .login-footer a:hover {
-            text-decoration: underline;
+        .auth-logo {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         }
     </style>
 </head>
 <body>
-    <div class="login-container">
-        <div class="login-card">
-            <div class="login-header">
-                <div class="login-icon">
-                    <i class="fas fa-user-shield"></i>
+    <div class="auth-wrapper">
+        <div class="auth-container">
+            <div class="auth-card">
+                <div class="auth-header">
+                    <div class="auth-logo">أ</div>
+                    <h1 class="auth-title">لوحة التحكم</h1>
+                    <p class="auth-subtitle">تسجيل دخول المشرف</p>
                 </div>
-                <h1 class="login-title">تسجيل دخول المشرف</h1>
-                <p class="login-subtitle">مرحباً بك في نظام إدارة المعامل</p>
-            </div>
-
-            <?php if ($error): ?>
-                <div class="alert alert-danger" role="alert">
-                    <i class="fas fa-exclamation-circle me-2"></i>
+                
+                <?php if ($error): ?>
+                <div class="alert alert-error">
+                    <svg class="alert-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
                     <?= htmlspecialchars($error) ?>
                 </div>
-            <?php endif; ?>
-
-            <form method="post" action="">
-                <?= generateCSRFField() ?>
+                <?php endif; ?>
                 
-                <div class="mb-3">
-                    <label for="email" class="form-label">البريد الإلكتروني</label>
-                    <input type="email" class="form-control" id="email" name="email" 
-                           placeholder="example@domain.com" required autofocus>
+                <?php if ($success): ?>
+                <div class="alert alert-success">
+                    <svg class="alert-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <?= htmlspecialchars($success) ?>
                 </div>
-
-                <div class="mb-3">
-                    <label for="password" class="form-label">كلمة المرور</label>
-                    <div class="password-wrapper">
-                        <input type="password" class="form-control" id="password" name="password" 
-                               placeholder="أدخل كلمة المرور" required>
-                        <button type="button" class="password-toggle" id="togglePassword">
-                            <i class="fas fa-eye"></i>
-                        </button>
+                <?php endif; ?>
+                
+                <form method="post" autocomplete="off">
+                    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">
+                    
+                    <div class="form-group">
+                        <label for="email" class="form-label">البريد الإلكتروني</label>
+                        <div class="input-group">
+                            <svg class="input-icon" width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+                            </svg>
+                            <input type="email" id="email" name="email" class="form-input" 
+                                   placeholder="admin@example.com" 
+                                   required autocomplete="username">
+                        </div>
                     </div>
+                    
+                    <div class="form-group">
+                        <label for="password" class="form-label">كلمة المرور</label>
+                        <div class="input-group">
+                            <svg class="input-icon" width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+                            </svg>
+                            <input type="password" id="password" name="password" class="form-input" 
+                                   placeholder="أدخل كلمة المرور" 
+                                   required autocomplete="current-password">
+                        </div>
+                    </div>
+                    
+                    <button type="submit" class="btn-submit">
+                        تسجيل الدخول
+                    </button>
+                </form>
+                
+                <div class="auth-links">
+                    <a href="../" class="auth-link">العودة للصفحة الرئيسية</a>
                 </div>
-
-                <div class="form-check">
-                    <input type="checkbox" class="form-check-input" id="remember" name="remember">
-                    <label class="form-check-label" for="remember">
-                        تذكرني
-                    </label>
-                    <a href="#" class="forgot-link">نسيت كلمة المرور؟</a>
-                </div>
-
-                <button type="submit" class="btn btn-primary btn-login">
-                    <i class="fas fa-sign-in-alt me-2"></i>
-                    تسجيل الدخول
-                </button>
-            </form>
-
-            <div class="login-footer">
-                <p>موظف معمل؟ <a href="/lab/login">تسجيل دخول الموظفين</a></p>
             </div>
         </div>
     </div>
-
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script>
-        // Toggle password visibility
-        document.getElementById('togglePassword').addEventListener('click', function() {
-            const passwordInput = document.getElementById('password');
-            const icon = this.querySelector('i');
-            
-            if (passwordInput.type === 'password') {
-                passwordInput.type = 'text';
-                icon.classList.remove('fa-eye');
-                icon.classList.add('fa-eye-slash');
-            } else {
-                passwordInput.type = 'password';
-                icon.classList.remove('fa-eye-slash');
-                icon.classList.add('fa-eye');
-            }
-        });
-    </script>
 </body>
 </html>

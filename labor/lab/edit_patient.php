@@ -1,5 +1,5 @@
 <?php
-include 'auth_employee.php';
+include 'auth_check.php';
 include '../includes/config.php';
 
 $id = $_GET['id'] ?? 0;

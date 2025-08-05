@@ -1,7 +1,7 @@
 <?php
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
-include 'auth_employee.php';
+include 'auth_check.php';
 include '../includes/config.php';
 
 $lab_id = $_SESSION['lab_id'];

@@ -1,48 +1,49 @@
 <?php
-session_start();
-include '../includes/config.php';
-include '../includes/csrf.php';
+require_once '../bootstrap.php';
+
+// Redirect if already authenticated
+if (is_authenticated()) {
+    redirect('lab_dashboard.php');
+}
 
 $error = '';
-$login_attempts = $_SESSION['lab_login_attempts'] ?? 0;
-$last_attempt_time = $_SESSION['lab_last_attempt_time'] ?? 0;
+$success = '';
 
-// Rate limiting: Allow max 5 attempts per 15 minutes
-if ($login_attempts >= 5 && (time() - $last_attempt_time) < 900) {
-    $remaining_time = 900 - (time() - $last_attempt_time);
-    $error = 'تم تجاوز عدد المحاولات المسموح. يرجى المحاولة بعد ' . ceil($remaining_time / 60) . ' دقيقة';
-} elseif ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    // Verify CSRF token
-    if (!isset($_POST['csrf_token']) || !verifyCSRFToken($_POST['csrf_token'])) {
-        $error = 'خطأ في الأمان. يرجى المحاولة مرة أخرى';
-    } else {
-        $email = filter_var($_POST['email'], FILTER_SANITIZE_EMAIL);
-        $password = $_POST['password'];
-
-    $stmt = $conn->prepare("SELECT * FROM lab_employees WHERE email = ? AND status = 'نشط' LIMIT 1");
-    $stmt->bind_param("s", $email);
-    $stmt->execute();
-    $result = $stmt->get_result();
-
-    if ($result->num_rows > 0) {
-        $user = $result->fetch_assoc();
-        if (password_verify($password, $user['password'])) {
-            $_SESSION['employee_id'] = $user['id'];
-            $_SESSION['employee_name'] = $user['name'];
-            $_SESSION['employee_role'] = $user['role'];
-            $_SESSION['lab_id'] = $user['lab_id'];
-            header("Location: /lab/dashboard");
-            exit;
-        } else {
-            $error = "كلمة المرور غير صحيحة";
-            $_SESSION['lab_login_attempts'] = ($login_attempts >= 5 && (time() - $last_attempt_time) >= 900) ? 1 : $login_attempts + 1;
-            $_SESSION['lab_last_attempt_time'] = time();
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    try {
+        // Verify CSRF token
+        if (!isset($_POST['_token']) || !$security->verifyCSRFToken($_POST['_token'])) {
+            throw new Exception('رمز الأمان غير صحيح');
         }
-    } else {
-        $error = "الحساب غير موجود أو غير نشط";
-        $_SESSION['lab_login_attempts'] = ($login_attempts >= 5 && (time() - $last_attempt_time) >= 900) ? 1 : $login_attempts + 1;
-        $_SESSION['lab_last_attempt_time'] = time();
-    }
+        
+        $email = sanitize($_POST['email'] ?? '');
+        $password = $_POST['password'] ?? '';
+        
+        if (empty($email) || empty($password)) {
+            throw new Exception('يرجى إدخال البريد الإلكتروني وكلمة المرور');
+        }
+        
+        // Authenticate lab
+        $result = $authService->authenticateLab($email, $password);
+        
+        // Set session data
+        $_SESSION['user_id'] = $result['lab_id'];
+        $_SESSION['user_name'] = $result['lab_name'];
+        $_SESSION['session_token'] = $result['session_token'];
+        $_SESSION['user_type'] = 'lab';
+        $_SESSION['lab_id'] = $result['lab_id'];
+        $_SESSION['subscription_type'] = $result['subscription_type'];
+        $_SESSION['subscription_end_date'] = $result['subscription_end_date'];
+        
+        // Store old input for form persistence
+        $_SESSION['old'] = $_POST;
+        
+        // Redirect to dashboard
+        redirect('lab_dashboard.php');
+        
+    } catch (Exception $e) {
+        $error = $e->getMessage();
+        $_SESSION['old'] = $_POST;
     }
 }
 ?>
@@ -51,183 +52,280 @@ if ($login_attempts >= 5 && (time() - $last_attempt_time) < 900) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>تسجيل دخول موظف المعمل - نظام إدارة المعامل</title>
-    <meta name="description" content="تسجيل دخول موظف المعمل لنظام إدارة المعامل">
-    <link rel="icon" type="image/png" href="/assets/favicon.png">
-    <link href="../assets/login-style.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <title>تسجيل الدخول - نظام إدارة المختبرات</title>
+    
+    <!-- Bootstrap RTL CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.rtl.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
+    
+    <!-- Custom CSS -->
+    <link href="../assets/modern-style.css" rel="stylesheet">
+    
+    <style>
+        .login-page {
+            min-height: 100vh;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .login-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            padding: 40px;
+            width: 100%;
+            max-width: 450px;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .login-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+        }
+        
+        .login-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .login-logo {
+            width: 80px;
+            height: 80px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 20px;
+            color: white;
+            font-size: 2rem;
+        }
+        
+        .login-title {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: #1e293b;
+            margin-bottom: 10px;
+        }
+        
+        .login-subtitle {
+            color: #64748b;
+            font-size: 1rem;
+        }
+        
+        .form-floating {
+            margin-bottom: 20px;
+        }
+        
+        .form-control {
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 15px 20px;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+        }
+        
+        .form-control:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+        }
+        
+        .btn-login {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            border: none;
+            border-radius: 12px;
+            padding: 15px 30px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: white;
+            width: 100%;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .btn-login:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+        
+        .btn-login::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: left 0.5s;
+        }
+        
+        .btn-login:hover::before {
+            left: 100%;
+        }
+        
+        .alert {
+            border-radius: 12px;
+            border: none;
+            padding: 15px 20px;
+            margin-bottom: 20px;
+            position: relative;
+        }
+        
+        .alert-danger {
+            background: linear-gradient(135deg, #fecaca, #fca5a5);
+            color: #991b1b;
+        }
+        
+        .alert-success {
+            background: linear-gradient(135deg, #bbf7d0, #86efac);
+            color: #166534;
+        }
+        
+        .forgot-password {
+            text-align: center;
+            margin-top: 20px;
+        }
+        
+        .forgot-password a {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 500;
+        }
+        
+        .forgot-password a:hover {
+            text-decoration: underline;
+        }
+        
+        .input-group-text {
+            background: transparent;
+            border: 2px solid #e2e8f0;
+            border-left: none;
+            color: #64748b;
+        }
+        
+        .form-control:focus + .input-group-text {
+            border-color: #667eea;
+        }
+        
+        @media (max-width: 576px) {
+            .login-card {
+                padding: 30px 20px;
+            }
+            
+            .login-title {
+                font-size: 1.5rem;
+            }
+        }
+    </style>
 </head>
-<body class="login-page">
-    <div class="login-wrapper">
+<body>
+    <div class="login-page">
         <div class="login-card">
             <div class="login-header">
                 <div class="login-logo">
-                    <i class="fas fa-user-md"></i>
+                    <i class="bi bi-droplet-fill"></i>
                 </div>
-                <h1 class="login-title">تسجيل دخول موظف المعمل</h1>
-                <p class="login-subtitle">مرحباً بك في نظام إدارة المعامل</p>
+                <h1 class="login-title">تسجيل الدخول</h1>
+                <p class="login-subtitle">نظام إدارة المختبرات الطبية</p>
             </div>
             
             <?php if ($error): ?>
                 <div class="alert alert-danger" role="alert">
-                    <i class="fas fa-exclamation-circle alert-icon"></i>
-                    <span><?= htmlspecialchars($error) ?></span>
+                    <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                    <?= htmlspecialchars($error) ?>
                 </div>
             <?php endif; ?>
             
-            <form method="post" id="loginForm" novalidate>
-                <?= generateCSRFField() ?>
-                <div class="form-group">
-                    <label for="email" class="form-label">البريد الإلكتروني</label>
-                    <input 
-                        type="email" 
-                        id="email"
-                        name="email" 
-                        class="form-control" 
-                        placeholder="example@domain.com"
-                        autocomplete="email"
-                        required
-                        autofocus
-                    >
-                    <div class="invalid-feedback" style="display: none;">
-                        يرجى إدخال بريد إلكتروني صحيح
-                    </div>
+            <?php if ($success): ?>
+                <div class="alert alert-success" role="alert">
+                    <i class="bi bi-check-circle-fill me-2"></i>
+                    <?= htmlspecialchars($success) ?>
+                </div>
+            <?php endif; ?>
+            
+            <form method="POST" action="">
+                <?= csrf_field() ?>
+                
+                <div class="form-floating">
+                    <input type="email" 
+                           class="form-control" 
+                           id="email" 
+                           name="email" 
+                           placeholder="البريد الإلكتروني"
+                           value="<?= old('email') ?>"
+                           required>
+                    <label for="email">البريد الإلكتروني</label>
                 </div>
                 
-                <div class="form-group">
-                    <label for="password" class="form-label">كلمة المرور</label>
-                    <div class="password-wrapper">
-                        <input 
-                            type="password" 
-                            id="password"
-                            name="password" 
-                            class="form-control" 
-                            placeholder="أدخل كلمة المرور"
-                            autocomplete="current-password"
-                            required
-                        >
-                        <button type="button" class="password-toggle" id="togglePassword" aria-label="إظهار كلمة المرور">
-                            <i class="fas fa-eye"></i>
-                        </button>
-                    </div>
-                    <div class="invalid-feedback" style="display: none;">
-                        يرجى إدخال كلمة المرور
-                    </div>
+                <div class="form-floating">
+                    <input type="password" 
+                           class="form-control" 
+                           id="password" 
+                           name="password" 
+                           placeholder="كلمة المرور"
+                           required>
+                    <label for="password">كلمة المرور</label>
                 </div>
                 
-                <div class="form-options">
-                    <div class="form-checkbox">
-                        <input type="checkbox" id="remember" name="remember" value="1">
-                        <label for="remember">تذكرني</label>
-                    </div>
-                    <a href="#" class="forgot-link">نسيت كلمة المرور؟</a>
-                </div>
-                
-                <button type="submit" class="btn-login" id="submitBtn">
-                    <span id="btnText">تسجيل الدخول</span>
-                    <span id="btnLoader" style="display: none;">
-                        <span class="spinner"></span> جاري التحميل...
-                    </span>
+                <button type="submit" class="btn btn-login">
+                    <i class="bi bi-box-arrow-in-right me-2"></i>
+                    تسجيل الدخول
                 </button>
             </form>
             
-            <div class="divider">
-                <span class="divider-text">أو</span>
-            </div>
-            
-            <div class="login-footer">
-                <p>مشرف النظام؟ <a href="/admin/login">تسجيل دخول المشرفين</a></p>
+            <div class="forgot-password">
+                <a href="forgot-password.php">نسيت كلمة المرور؟</a>
             </div>
         </div>
     </div>
     
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    
     <script>
-        // Password visibility toggle
-        const togglePassword = document.getElementById('togglePassword');
-        const passwordInput = document.getElementById('password');
-        
-        togglePassword.addEventListener('click', function() {
-            const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
-            passwordInput.setAttribute('type', type);
-            this.querySelector('i').classList.toggle('fa-eye');
-            this.querySelector('i').classList.toggle('fa-eye-slash');
-        });
+        // Auto-focus on email field
+        document.getElementById('email').focus();
         
         // Form validation
-        const form = document.getElementById('loginForm');
-        const emailInput = document.getElementById('email');
-        const submitBtn = document.getElementById('submitBtn');
-        const btnText = document.getElementById('btnText');
-        const btnLoader = document.getElementById('btnLoader');
-        
-        // Email validation
-        emailInput.addEventListener('blur', function() {
-            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-            if (!emailRegex.test(this.value)) {
-                this.classList.add('is-invalid');
-                this.nextElementSibling.style.display = 'block';
-            } else {
-                this.classList.remove('is-invalid');
-                this.nextElementSibling.style.display = 'none';
-            }
-        });
-        
-        // Password validation
-        passwordInput.addEventListener('blur', function() {
-            if (this.value.length < 1) {
-                this.classList.add('is-invalid');
-                this.parentElement.nextElementSibling.style.display = 'block';
-            } else {
-                this.classList.remove('is-invalid');
-                this.parentElement.nextElementSibling.style.display = 'none';
-            }
-        });
-        
-        // Form submission
-        form.addEventListener('submit', function(e) {
-            e.preventDefault();
+        document.querySelector('form').addEventListener('submit', function(e) {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
             
-            // Validate all fields
-            let isValid = true;
-            
-            if (!emailInput.value || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailInput.value)) {
-                emailInput.classList.add('is-invalid');
-                emailInput.nextElementSibling.style.display = 'block';
-                isValid = false;
+            if (!email || !password) {
+                e.preventDefault();
+                alert('يرجى إدخال جميع الحقول المطلوبة');
+                return false;
             }
             
-            if (!passwordInput.value) {
-                passwordInput.classList.add('is-invalid');
-                passwordInput.parentElement.nextElementSibling.style.display = 'block';
-                isValid = false;
-            }
-            
-            if (isValid) {
-                // Show loading state
-                submitBtn.disabled = true;
-                btnText.style.display = 'none';
-                btnLoader.style.display = 'inline-block';
-                
-                // Submit form
-                this.submit();
-            } else {
-                // Shake animation
-                form.classList.add('shake');
-                setTimeout(() => form.classList.remove('shake'), 500);
-            }
+            // Show loading state
+            const submitBtn = document.querySelector('.btn-login');
+            submitBtn.innerHTML = '<i class="bi bi-arrow-clockwise spin me-2"></i>جاري التحميل...';
+            submitBtn.disabled = true;
         });
         
-        // Remove invalid class on input
-        [emailInput, passwordInput].forEach(input => {
-            input.addEventListener('input', function() {
-                this.classList.remove('is-invalid');
-                if (this.id === 'password') {
-                    this.parentElement.nextElementSibling.style.display = 'none';
-                } else {
-                    this.nextElementSibling.style.display = 'none';
-                }
-            });
-        });
+        // Add spin animation
+        const style = document.createElement('style');
+        style.textContent = `
+            .spin {
+                animation: spin 1s linear infinite;
+            }
+            @keyframes spin {
+                from { transform: rotate(0deg); }
+                to { transform: rotate(360deg); }
+            }
+        `;
+        document.head.appendChild(style);
     </script>
 </body>
-</html>
+</html> 

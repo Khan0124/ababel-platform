@@ -1,363 +1,274 @@
-# Laboratory Management System 🧪
+# نظام إدارة المختبرات الطبية - النسخة المطورة
 
-A comprehensive, professional-grade laboratory management system built with modern PHP architecture, designed for medical laboratories and diagnostic centers.
+## نظرة عامة
 
-## 🌟 Features
+تم تطوير نظام إدارة المختبرات الطبية بشكل شامل لتحسين الأمان، الأداء، وقابلية الصيانة. تم تطبيق أفضل الممارسات الحديثة في تطوير الويب مع التركيز على تجربة المستخدم الممتازة.
 
-### Core Functionality
-- **Patient Management**: Complete patient records with medical history
-- **Exam Management**: Comprehensive test catalog with results tracking
-- **Employee Management**: Staff management with role-based permissions
-- **Inventory Management**: Stock tracking and supply management
-- **Financial Management**: Invoicing, payments, and revenue tracking
-- **Reporting System**: Detailed analytics and customizable reports
+## التحسينات الرئيسية
 
-### Technical Features
-- **Modern PHP Architecture**: Clean MVC structure with dependency injection
-- **Security First**: CSRF protection, rate limiting, input validation
-- **Responsive Design**: Mobile-friendly interface with RTL support
-- **Performance Optimized**: Caching, lazy loading, and optimized queries
-- **Professional UI/UX**: Modern design with Arabic language support
-- **Comprehensive Logging**: Activity tracking and error monitoring
+### 🔒 الأمان
+- **تشفير قوي**: استخدام Argon2id لتشفير كلمات المرور
+- **حماية من CSRF**: رموز أمان للتحقق من صحة الطلبات
+- **حماية من XSS**: تنظيف المدخلات وتشفير المخرجات
+- **حماية من SQL Injection**: استخدام Prepared Statements
+- **Brute Force Protection**: حماية من محاولات تسجيل الدخول المتكررة
+- **Session Security**: إدارة آمنة للجلسات مع انتهاء صلاحية تلقائي
+- **Security Headers**: رؤوس HTTP أمنية متقدمة
 
-## 🚀 Quick Start
+### 🏗️ البنية المعمارية
+- **MVC Pattern**: فصل المنطق عن العرض
+- **Service Layer**: طبقة خدمات منفصلة للمنطق التجاري
+- **Repository Pattern**: نمط المستودع للوصول للبيانات
+- **Dependency Injection**: حقن التبعيات
+- **Environment Configuration**: إعدادات قائمة على البيئة
+- **Autoloading**: تحميل تلقائي للفئات
 
-### Prerequisites
-- PHP 7.4+ or 8.0+
-- MySQL 5.7+ or MariaDB 10.3+
-- Composer
-- Web server (Apache/Nginx)
+### 🎨 واجهة المستخدم
+- **Modern Design**: تصميم حديث مع Bootstrap 5
+- **Responsive Layout**: تخطيط متجاوب لجميع الأجهزة
+- **RTL Support**: دعم كامل للغة العربية
+- **Interactive Elements**: عناصر تفاعلية مع تأثيرات بصرية
+- **Loading States**: حالات تحميل واضحة
+- **Error Handling**: معالجة أخطاء محسنة
 
-### Installation
+### ⚡ الأداء
+- **Database Optimization**: تحسين استعلامات قاعدة البيانات
+- **Caching**: نظام تخزين مؤقت
+- **Connection Pooling**: تجميع الاتصالات
+- **Lazy Loading**: التحميل الكسول
+- **Minified Assets**: ضغط الملفات الثابتة
 
-1. **Clone the repository**
-   ```bash
-   git clone [repository-url]
-   cd labor
-   ```
+### 🗄️ قاعدة البيانات
+- **Prepared Statements**: استعلامات محضرة
+- **Transaction Support**: دعم المعاملات
+- **Indexing**: فهرسة محسنة
+- **Data Validation**: التحقق من صحة البيانات
+- **Backup Strategy**: استراتيجية نسخ احتياطي
 
-2. **Install dependencies**
-   ```bash
-   composer install
-   ```
+## الملفات الجديدة
 
-3. **Environment setup**
-   ```bash
-   cp .env.example .env
-   # Edit .env with your configuration
-   ```
-
-4. **Database setup**
-   ```bash
-   # Create your database
-   mysql -u root -p -e "CREATE DATABASE labor_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
-   
-   # Update .env with database credentials
-   # Run migrations (when available)
-   ```
-
-5. **Set permissions**
-   ```bash
-   chmod -R 755 storage/
-   chmod -R 755 public/uploads/
-   ```
-
-6. **Web server configuration**
-   - Point document root to `/public` directory
-   - Ensure `.htaccess` rules are enabled
-
-## 📁 Project Structure
-
+### البنية الأساسية
 ```
-labor/
-├── app/                    # Application code
-│   ├── Core/              # Core framework classes
-│   ├── Models/            # Data models
-│   ├── Controllers/       # Request handlers
-│   ├── Services/          # Business logic
-│   ├── Middleware/        # Request middleware
-│   ├── Helpers/           # Utility functions
-│   └── Exceptions/        # Custom exceptions
-├── bootstrap/             # Application bootstrap
-├── config/                # Configuration files
-├── database/              # Database migrations & seeders
-├── public/                # Public web files
-├── resources/             # Views and assets
-├── storage/               # Logs, cache, sessions
-├── tests/                 # Test files
-├── vendor/                # Composer dependencies
-├── admin/                 # Admin panel (legacy)
-├── lab/                   # Lab interface (legacy)
-├── includes/              # Shared includes
-└── assets/                # Static assets
+app/
+├── Config/
+│   ├── App.php          # إعدادات التطبيق
+│   └── Database.php     # إعدادات قاعدة البيانات
+├── Core/
+│   └── Security.php     # إدارة الأمان
+├── Models/
+│   ├── BaseModel.php    # النموذج الأساسي
+│   ├── Lab.php          # نموذج المعمل
+│   ├── Patient.php      # نموذج المريض
+│   ├── Exam.php         # نموذج الفحص
+│   └── LabEmployee.php  # نموذج الموظف
+└── Services/
+    └── AuthService.php  # خدمة المصادقة
 ```
 
-## 🔧 Configuration
+### الملفات المحدثة
+```
+bootstrap.php            # نقطة البداية للتطبيق
+lab/
+├── login.php           # صفحة تسجيل الدخول المطورة
+├── dashboard.php       # لوحة التحكم الجديدة
+├── patients_list.php   # قائمة المرضى المطورة
+├── add_patient.php     # إضافة مريض محسنة
+└── logout.php          # تسجيل الخروج الآمن
+errors/
+├── 404.php            # صفحة خطأ 404
+└── 500.php            # صفحة خطأ 500
+```
 
-### Environment Variables
+## الميزات الجديدة
 
-Key environment variables to configure:
+### نظام المصادقة المحسن
+- تسجيل دخول آمن مع حماية من الهجمات
+- إدارة جلسات متقدمة
+- تسجيل خروج آمن
+- تغيير كلمة مرور مع التحقق من القوة
 
+### إدارة المرضى
+- إضافة مرضى مع تحقق من البيانات
+- بحث متقدم في المرضى
+- عرض تفاصيل المريض مع الإحصائيات
+- تحرير بيانات المريض
+
+### لوحة التحكم
+- إحصائيات شاملة
+- رسوم بيانية تفاعلية
+- عرض النشاط الأخير
+- تنبيهات ذكية
+
+### واجهة المستخدم
+- تصميم حديث ومتجاوب
+- دعم كامل للغة العربية
+- تأثيرات بصرية جذابة
+- تجربة مستخدم محسنة
+
+## متطلبات النظام
+
+### الخادم
+- PHP 7.4 أو أحدث
+- MySQL 5.7 أو أحدث
+- Apache/Nginx
+- SSL Certificate (للإنتاج)
+
+### المتصفحات المدعومة
+- Chrome 90+
+- Firefox 88+
+- Safari 14+
+- Edge 90+
+
+## التثبيت
+
+### 1. تحضير البيئة
+```bash
+# نسخ ملف البيئة
+cp .env.example .env
+
+# تعديل إعدادات قاعدة البيانات
+nano .env
+```
+
+### 2. إعداد قاعدة البيانات
+```sql
+-- إنشاء قاعدة البيانات
+CREATE DATABASE labor CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- إنشاء المستخدم
+CREATE USER 'labor'@'localhost' IDENTIFIED BY 'your_secure_password';
+GRANT ALL PRIVILEGES ON labor.* TO 'labor'@'localhost';
+FLUSH PRIVILEGES;
+```
+
+### 3. تشغيل الهجرات
+```bash
+php migrations/migrate.php
+```
+
+### 4. إعداد الأذونات
+```bash
+chmod 755 -R .
+chmod 777 -R logs/
+chmod 777 -R uploads/
+```
+
+## الإعدادات
+
+### ملف البيئة (.env)
 ```env
-# Application
-APP_NAME="Laboratory Management System"
+# إعدادات التطبيق
 APP_ENV=production
 APP_DEBUG=false
 APP_URL=https://yourdomain.com
+APP_KEY=your-32-character-secure-key
 
-# Database
+# إعدادات قاعدة البيانات
 DB_HOST=localhost
-DB_DATABASE=labor_db
-DB_USERNAME=your_username
-DB_PASSWORD=your_password
+DB_PORT=3306
+DB_DATABASE=labor
+DB_USERNAME=labor
+DB_PASSWORD=your_secure_password
 
-# Security
-APP_KEY=your-secret-key-here
+# إعدادات الأمان
+ENCRYPTION_KEY=your-32-character-encryption-key
 SESSION_LIFETIME=120
+SESSION_SECURE_COOKIE=true
 
-# Limits
-LOGIN_MAX_ATTEMPTS=5
-LOGIN_LOCKOUT_MINUTES=15
-MAX_UPLOAD_SIZE=10M
+# المنطقة الزمنية
+TIMEZONE=Africa/Cairo
 ```
 
-### Web Server Configuration
+## الأمان
 
-#### Apache
-Ensure mod_rewrite is enabled and use the provided `.htaccess` file.
+### أفضل الممارسات المطبقة
+- تشفير قوي لكلمات المرور
+- حماية من هجمات CSRF
+- تنظيف المدخلات
+- حماية من SQL Injection
+- رؤوس HTTP أمنية
+- إدارة آمنة للجلسات
 
-#### Nginx
-```nginx
-server {
-    listen 80;
-    server_name yourdomain.com;
-    root /path/to/labor/public;
-    index index.php;
+### التوصيات الإضافية
+- استخدام HTTPS في الإنتاج
+- تحديث PHP بانتظام
+- مراقبة السجلات
+- نسخ احتياطي منتظم
+- فحص الأمان الدوري
 
-    location / {
-        try_files $uri $uri/ /index.php?$query_string;
-    }
+## الأداء
 
-    location ~ \.php$ {
-        fastcgi_pass unix:/var/run/php/php8.0-fpm.sock;
-        fastcgi_index index.php;
-        fastcgi_param SCRIPT_FILENAME $realpath_root$fastcgi_script_name;
-        include fastcgi_params;
-    }
+### التحسينات المطبقة
+- استعلامات قاعدة بيانات محسنة
+- تخزين مؤقت للبيانات
+- ضغط الملفات الثابتة
+- تحميل كسول للصور
+- تحسين CSS و JavaScript
 
-    location ~ /\. {
-        deny all;
-    }
-}
-```
+### مراقبة الأداء
+- سجلات الأخطاء
+- قياسات الأداء
+- مراقبة قاعدة البيانات
+- تحليل الاستخدام
 
-## 👥 User Roles
+## الدعم والصيانة
 
-### System Administrator
-- Manage laboratory accounts
-- Monitor system performance
-- Configure global settings
-- View system-wide reports
+### السجلات
+- سجلات الأخطاء: `logs/error.log`
+- سجلات الأمان: `logs/security.log`
+- سجلات الأداء: `logs/performance.log`
 
-### Laboratory Manager
-- Manage employees and permissions
-- Configure lab-specific settings
-- Access financial reports
-- Manage inventory
-
-### Laboratory Technician
-- Process patient samples
-- Enter test results
-- Manage patient records
-- Generate reports
-
-### Receptionist
-- Register new patients
-- Schedule appointments
-- Handle payments
-- Print invoices
-
-## 🔒 Security Features
-
-- **Authentication**: Secure login with rate limiting
-- **Authorization**: Role-based access control
-- **CSRF Protection**: All forms protected against CSRF attacks
-- **Input Validation**: Comprehensive server-side validation
-- **SQL Injection Prevention**: Prepared statements throughout
-- **XSS Protection**: Output escaping and CSP headers
-- **Session Security**: Secure session management
-- **File Upload Security**: Restricted file types and locations
-
-## 📊 API Documentation
-
-### Authentication
-```php
-POST /api/v1/auth/login
-{
-    "email": "user@example.com",
-    "password": "password"
-}
-```
-
-### Patients
-```php
-GET /api/v1/patients          # List all patients
-POST /api/v1/patients         # Create patient
-GET /api/v1/patients/{id}     # Get patient details
-PUT /api/v1/patients/{id}     # Update patient
-DELETE /api/v1/patients/{id}  # Delete patient
-```
-
-### Exams
-```php
-GET /api/v1/exams             # List all exams
-POST /api/v1/exams            # Create exam
-GET /api/v1/exams/{id}        # Get exam details
-PUT /api/v1/exams/{id}        # Update exam
-```
-
-## 🧪 Testing
-
-### Running Tests
+### النسخ الاحتياطي
 ```bash
-# Run all tests
-composer test
+# نسخ احتياطي لقاعدة البيانات
+mysqldump -u labor -p labor > backup_$(date +%Y%m%d_%H%M%S).sql
 
-# Run with coverage
-composer test-coverage
-
-# Run specific test suite
-vendor/bin/phpunit tests/Unit/
-vendor/bin/phpunit tests/Feature/
+# نسخ احتياطي للملفات
+tar -czf backup_$(date +%Y%m%d_%H%M%S).tar.gz .
 ```
 
-### Test Structure
-- **Unit Tests**: Test individual classes and methods
-- **Feature Tests**: Test complete workflows
-- **Integration Tests**: Test database interactions
+### التحديثات
+- مراقبة التحديثات الأمنية
+- اختبار التحديثات في بيئة التطوير
+- خطة تراجع واضحة
+- توثيق التغييرات
 
-## 🚀 Performance Optimization
+## المساهمة
 
-### Caching
-- **Query Caching**: Database query results cached
-- **Session Caching**: Redis/Memcached support
-- **File Caching**: Static file caching with proper headers
+### إرشادات التطوير
+- اتباع معايير PSR
+- كتابة تعليقات واضحة
+- اختبار الكود
+- توثيق التغييرات
 
-### Database Optimization
-- **Indexes**: Proper indexing on frequently queried columns
-- **Query Optimization**: Optimized queries with EXPLAIN analysis
-- **Connection Pooling**: Efficient database connection management
-
-### Frontend Optimization
-- **Asset Minification**: CSS/JS minification in production
-- **Image Optimization**: Optimized images with proper formats
-- **CDN Ready**: Asset URLs configurable for CDN usage
-
-## 📝 Logging
-
-The system provides comprehensive logging:
-
-### Log Levels
-- **DEBUG**: Development information
-- **INFO**: General information
-- **WARNING**: Warning conditions
-- **ERROR**: Error conditions
-- **CRITICAL**: Critical conditions
-
-### Log Files
-- `storage/logs/labor.log` - General application log
-- `storage/logs/error.log` - Error-specific log
-- `storage/logs/security.log` - Security events
-- `storage/logs/performance.log` - Performance metrics
-
-## 🔄 Backup & Maintenance
-
-### Database Backup
+### إعداد بيئة التطوير
 ```bash
-# Create backup
-mysqldump -u username -p labor_db > backup_$(date +%Y%m%d_%H%M%S).sql
+# نسخ المشروع
+git clone [repository-url]
+cd labor
 
-# Restore backup
-mysql -u username -p labor_db < backup_file.sql
+# تثبيت التبعيات
+composer install
+
+# إعداد البيئة
+cp .env.example .env
+# تعديل .env للبيئة المحلية
+
+# تشغيل الخادم المحلي
+php -S localhost:8000
 ```
 
-### File Backup
-```bash
-# Backup uploads and logs
-tar -czf files_backup_$(date +%Y%m%d).tar.gz storage/ public/uploads/
-```
+## الترخيص
 
-### Maintenance Mode
-```bash
-# Enable maintenance mode
-touch storage/maintenance
+هذا المشروع مرخص تحت رخصة MIT. راجع ملف LICENSE للتفاصيل.
 
-# Disable maintenance mode
-rm storage/maintenance
-```
+## الاتصال
 
-## 🐛 Troubleshooting
-
-### Common Issues
-
-1. **Database Connection Error**
-   - Check database credentials in `.env`
-   - Verify database server is running
-   - Check firewall settings
-
-2. **Permission Denied**
-   ```bash
-   chmod -R 755 storage/
-   chmod -R 755 public/uploads/
-   chown -R www-data:www-data storage/
-   ```
-
-3. **Session Issues**
-   - Check session directory permissions
-   - Verify session configuration in PHP
-   - Clear session files if corrupted
-
-4. **Upload Issues**
-   - Check PHP upload settings
-   - Verify upload directory permissions
-   - Check file size limits
-
-### Debug Mode
-Enable debug mode in development:
-```env
-APP_DEBUG=true
-APP_ENV=development
-```
-
-## 📄 License
-
-This project is proprietary software. All rights reserved.
-
-## 🤝 Support
-
-For support and questions:
-- Check the documentation
-- Review common issues
-- Contact system administrator
-
-## 🚀 Deployment
-
-### Production Checklist
-- [ ] Set `APP_ENV=production`
-- [ ] Set `APP_DEBUG=false`
-- [ ] Configure proper database credentials
-- [ ] Set up SSL certificate
-- [ ] Configure web server properly
-- [ ] Set up monitoring and logging
-- [ ] Configure backup strategy
-- [ ] Test all functionality
-
-### Monitoring
-- Set up application monitoring
-- Configure error reporting
-- Monitor performance metrics
-- Set up log rotation
+للأسئلة والدعم الفني:
+- البريد الإلكتروني: support@labor-system.com
+- الهاتف: +20-XXX-XXX-XXXX
+- الموقع: https://labor-system.com
 
 ---
 
-Built with ❤️ for modern laboratory management.
+**ملاحظة**: هذا النظام مصمم للاستخدام في البيئات الطبية ويجب الالتزام بجميع اللوائح والأنظمة المحلية المتعلقة بحماية البيانات الطبية. 

@@ -1,21 +1,33 @@
 <?php
-session_start();
-include 'auth_employee.php';
+include 'auth_check.php';
 include '../includes/config.php';
+include '../includes/config_secure.php';
 
 $lab_id = $_SESSION['lab_id'];
 
 // المرضى
-$patients = $conn->query("SELECT id, code, name, gender, age_value, age_unit FROM patients WHERE lab_id = $lab_id");
-$patients_data = $patients->fetch_all(MYSQLI_ASSOC);
+$stmt = $conn->prepare("SELECT id, code, name, gender, age_value, age_unit FROM patients WHERE lab_id = ? ORDER BY name");
+$stmt->bind_param("i", $lab_id);
+$stmt->execute();
+$patients_result = $stmt->get_result();
+$patients_data = $patients_result->fetch_all(MYSQLI_ASSOC);
+$stmt->close();
 
 // الفحوصات
-$exams = $conn->query("SELECT id, name_en, code_exam, price FROM exam_catalog WHERE lab_id = $lab_id AND is_active = 1");
-$exams_data = $exams->fetch_all(MYSQLI_ASSOC);
+$stmt = $conn->prepare("SELECT id, name_en, code_exam, price FROM exam_catalog WHERE lab_id = ? AND is_active = 1 ORDER BY name_en");
+$stmt->bind_param("i", $lab_id);
+$stmt->execute();
+$exams_result = $stmt->get_result();
+$exams_data = $exams_result->fetch_all(MYSQLI_ASSOC);
+$stmt->close();
 
 // شركات التأمين المفعلة فقط
-$insurance_companies = $conn->query("SELECT id, name FROM insurance_companies WHERE lab_id = $lab_id AND is_active = 1");
-$insurance_data = $insurance_companies->fetch_all(MYSQLI_ASSOC);
+$stmt = $conn->prepare("SELECT id, name FROM insurance_companies WHERE lab_id = ? AND is_active = 1 ORDER BY name");
+$stmt->bind_param("i", $lab_id);
+$stmt->execute();
+$insurance_result = $stmt->get_result();
+$insurance_data = $insurance_result->fetch_all(MYSQLI_ASSOC);
+$stmt->close();
 ?>
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
@@ -35,12 +47,13 @@ $insurance_data = $insurance_companies->fetch_all(MYSQLI_ASSOC);
   <h4 class="mb-4 text-center">🧾 إضافة فاتورة فحوصات</h4>
 
   <form method="post" action="save_exam_for_patient.php">
+    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '') ?>">
     <div class="mb-3">
       <label class="form-label">المريض</label>
       <select name="patient_id" class="form-select select2" required>
         <option value="">-- اختر المريض --</option>
         <?php foreach ($patients_data as $p): ?>
-          <option value="<?= $p['id'] ?>"><?= $p['code'] . ' - ' . $p['name'] . " (" . $p['age_value'] . " " . $p['age_unit'] . ")" ?></option>
+          <option value="<?= htmlspecialchars($p['id']) ?>"><?= htmlspecialchars($p['code'] . ' - ' . $p['name'] . " (" . $p['age_value'] . " " . $p['age_unit'] . ")") ?></option>
         <?php endforeach; ?>
       </select>
     </div>
@@ -53,7 +66,7 @@ $insurance_data = $insurance_companies->fetch_all(MYSQLI_ASSOC);
             <select name="exam_ids[]" class="form-select select2" required>
               <option value="">-- اختر التحليل --</option>
               <?php foreach ($exams_data as $e): ?>
-                <option value="<?= $e['id'] ?>"><?= $e['code_exam'] ?> - <?= $e['name_en'] ?> (<?= $e['price'] ?> ج)</option>
+                <option value="<?= htmlspecialchars($e['id']) ?>"><?= htmlspecialchars($e['code_exam'] . ' - ' . $e['name_en'] . ' (' . $e['price'] . ' ج)') ?></option>
               <?php endforeach; ?>
             </select>
           </div>
@@ -84,7 +97,7 @@ $insurance_data = $insurance_companies->fetch_all(MYSQLI_ASSOC);
       <select name="insurance_company_id" class="form-select select2">
         <option value="">— لا يوجد —</option>
         <?php foreach ($insurance_data as $company): ?>
-          <option value="<?= $company['id'] ?>"><?= $company['name'] ?></option>
+          <option value="<?= htmlspecialchars($company['id']) ?>"><?= htmlspecialchars($company['name']) ?></option>
         <?php endforeach; ?>
       </select>
     </div>

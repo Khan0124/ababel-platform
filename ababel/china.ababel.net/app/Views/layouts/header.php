@@ -23,150 +23,372 @@ $isRTL = isRTL(); // Use the global function
 $currentLang = lang(); // Use the global function
 ?>
 <!DOCTYPE html>
-<html lang="<?= $currentLang ?>" dir="<?= $isRTL ? 'rtl' : 'ltr' ?>">
+<html lang="<?= $_SESSION['lang'] ?? 'ar' ?>" dir="<?= in_array($_SESSION['lang'] ?? 'ar', ['ar', 'fa', 'he', 'ur']) ? 'rtl' : 'ltr' ?>">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?= $title ?? __('app_name') ?> - <?= __('company_name') ?></title>
-    
-    <!-- Bootstrap CSS - RTL or LTR based on language -->
-    <?php if ($isRTL): ?>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.rtl.min.css">
-    <?php else: ?>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <title><?= $pageTitle ?? 'Dashboard' ?> - China Ababel</title>
+    <link rel="stylesheet" href="/assets/css/modern.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="icon" type="image/x-icon" href="/assets/images/favicon.ico">
+    <meta name="description" content="China Ababel Accounting System - Professional financial management">
+    <?php if (isset($metaTags)): ?>
+        <?= $metaTags ?>
     <?php endif; ?>
-    
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
-    <link rel="stylesheet" href="/assets/css/style.css">
-    
-    <!-- Language-specific styling -->
-    <style>
-        :root {
-            --font-family: <?= $isRTL ? "'Segoe UI', Tahoma, 'Arial Unicode MS', Arial" : "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif" ?>;
-        }
-        
-        body {
-            font-family: var(--font-family);
-            direction: <?= $isRTL ? 'rtl' : 'ltr' ?>;
-        }
-        
-        /* Adjust icons for RTL */
-        <?php if ($isRTL): ?>
-        .bi-arrow-left::before { content: "\f12f"; }
-        .bi-arrow-right::before { content: "\f130"; }
-        .dropdown-menu { text-align: right; }
-        <?php endif; ?>
-        
-        /* Notification badge style */
-        .navbar-nav .badge {
-            position: absolute;
-            top: 5px;
-            <?= $isRTL ? 'left' : 'right' ?>: 5px;
-            font-size: 0.75rem;
-            padding: 0.25rem 0.4rem;
-        }
-        
-        .nav-item {
-            position: relative;
-        }
-    </style>
 </head>
 <body>
-    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
-        <div class="container-fluid">
-            <a class="navbar-brand" href="/">
-                <i class="bi bi-building"></i> <?= __('app_name') ?>
-            </a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav <?= $isRTL ? 'me-auto' : 'ms-auto' ?>">
-                    <li class="nav-item">
-                        <a class="nav-link <?= strpos($_SERVER['REQUEST_URI'], '/dashboard') !== false ? 'active' : '' ?>" href="/dashboard">
-                            <i class="bi bi-speedometer2"></i> <?= __('nav.dashboard') ?>
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link <?= strpos($_SERVER['REQUEST_URI'], '/clients') !== false ? 'active' : '' ?>" href="/clients">
-                            <i class="bi bi-people"></i> <?= __('nav.clients') ?>
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link <?= strpos($_SERVER['REQUEST_URI'], '/transactions') !== false ? 'active' : '' ?>" href="/transactions">
-                            <i class="bi bi-receipt"></i> <?= __('nav.transactions') ?>
-                        </a>
-                    </li>
-                    <li class="nav-item position-relative">
-                        <a class="nav-link <?= strpos($_SERVER['REQUEST_URI'], '/loadings') !== false ? 'active' : '' ?>" href="/loadings">
-                            <i class="bi bi-box-seam"></i> <?= __('loadings.title') ?>
-                            <?php 
-                            // Show notification badge for new containers if user is assigned to an office
-                            if (isset($_SESSION['user_office']) && $_SESSION['user_office']) {
-                                $db = \App\Core\Database::getInstance();
-                                $stmt = $db->query("SELECT COUNT(*) as unread FROM office_notifications 
-                                                   WHERE office = ? AND is_read = 0", [$_SESSION['user_office']]);
-                                $result = $stmt->fetch();
-                                $unread = $result ? $result['unread'] : 0;
-                                if ($unread > 0):
-                            ?>
-                                <span class="badge bg-danger rounded-pill"><?= $unread ?></span>
-                            <?php endif; } ?>
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link <?= strpos($_SERVER['REQUEST_URI'], '/cashbox') !== false ? 'active' : '' ?>" href="/cashbox">
-                            <i class="bi bi-cash-stack"></i> <?= __('nav.cashbox') ?>
-                        </a>
-                    </li>
-                    
-                    <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle <?= strpos($_SERVER['REQUEST_URI'], '/reports') !== false ? 'active' : '' ?>" href="#" data-bs-toggle="dropdown">
-                            <i class="bi bi-file-earmark-text"></i> <?= __('nav.reports') ?>
-                        </a>
-                        <ul class="dropdown-menu">
-                            <li><a class="dropdown-item" href="/reports/daily"><?= __('reports.daily_report') ?></a></li>
-                            <li><a class="dropdown-item" href="/reports/monthly"><?= __('reports.monthly_report') ?></a></li>
-                            <li><a class="dropdown-item" href="/reports/clients"><?= __('reports.client_report') ?></a></li>
-                            <li><a class="dropdown-item" href="/reports/cashbox"><?= __('reports.cashbox_report') ?></a></li>
-                        </ul>
-                    </li>
-                </ul>
-                
-                <ul class="navbar-nav">
-                    <!-- Language Switcher -->
-                    <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">
-                            <i class="bi bi-globe"></i> <?= $lang->getAvailableLanguages()[$currentLang] ?? $currentLang ?>
-                        </a>
-                        <ul class="dropdown-menu dropdown-menu-end">
-                            <?php foreach ($lang->getAvailableLanguages() as $code => $name): ?>
-                            <li>
-                                <a class="dropdown-item <?= $code === $currentLang ? 'active' : '' ?>" 
-                                   href="/change-language?lang=<?= $code ?>">
-                                    <?= $name ?>
-                                </a>
-                            </li>
-                            <?php endforeach; ?>
-                        </ul>
-                    </li>
-                    
-                    <!-- User Menu -->
-                    <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">
-                            <i class="bi bi-person-circle"></i> <?= $_SESSION['user_name'] ?? 'User' ?>
-                        </a>
-                        <ul class="dropdown-menu dropdown-menu-end">
-                            <li><a class="dropdown-item" href="/profile"><?= __('nav.profile') ?></a></li>
-                            <li><a class="dropdown-item" href="/settings"><?= __('nav.settings') ?></a></li>
-                            <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item" href="/logout"><?= __('login.logout') ?></a></li>
-                        </ul>
-                    </li>
-                </ul>
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div class="sidebar-brand">
+                <img src="/assets/images/logo.png" alt="China Ababel" class="sidebar-logo">
+                <h2 class="sidebar-title">China Ababel</h2>
             </div>
         </div>
-    </nav>
+        
+        <nav class="sidebar-nav">
+            <ul class="nav-list">
+                <li class="nav-item">
+                    <a href="/dashboard" class="nav-link <?= $currentPage === 'dashboard' ? 'active' : '' ?>">
+                        <span class="nav-icon">📊</span>
+                        <span class="nav-text"><?= __('Dashboard') ?></span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="/clients" class="nav-link <?= $currentPage === 'clients' ? 'active' : '' ?>">
+                        <span class="nav-icon">👥</span>
+                        <span class="nav-text"><?= __('Clients') ?></span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="/transactions" class="nav-link <?= $currentPage === 'transactions' ? 'active' : '' ?>">
+                        <span class="nav-icon">💰</span>
+                        <span class="nav-text"><?= __('Transactions') ?></span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="/loadings" class="nav-link <?= $currentPage === 'loadings' ? 'active' : '' ?>">
+                        <span class="nav-icon">📦</span>
+                        <span class="nav-text"><?= __('Loadings') ?></span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="/cashbox" class="nav-link <?= $currentPage === 'cashbox' ? 'active' : '' ?>">
+                        <span class="nav-icon">🏦</span>
+                        <span class="nav-text"><?= __('Cashbox') ?></span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="/reports" class="nav-link <?= $currentPage === 'reports' ? 'active' : '' ?>">
+                        <span class="nav-icon">📈</span>
+                        <span class="nav-text"><?= __('Reports') ?></span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="/settings" class="nav-link <?= $currentPage === 'settings' ? 'active' : '' ?>">
+                        <span class="nav-icon">⚙️</span>
+                        <span class="nav-text"><?= __('Settings') ?></span>
+                    </a>
+                </li>
+            </ul>
+        </nav>
+        
+        <div class="sidebar-footer">
+            <div class="user-info">
+                <div class="user-avatar">
+                    <span class="avatar-text"><?= strtoupper(substr($_SESSION['username'] ?? 'U', 0, 1)) ?></span>
+                </div>
+                <div class="user-details">
+                    <div class="user-name"><?= htmlspecialchars($_SESSION['username'] ?? 'User') ?></div>
+                    <div class="user-role"><?= htmlspecialchars($_SESSION['user_role'] ?? 'User') ?></div>
+                </div>
+            </div>
+            <a href="/logout" class="logout-btn">
+                <span class="logout-icon">🚪</span>
+                <span><?= __('Logout') ?></span>
+            </a>
+        </div>
+    </aside>
     
-    <div class="container-fluid">
-        <div class="row">
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Top Navigation -->
+        <header class="top-nav">
+            <div class="nav-left">
+                <button class="menu-toggle" id="menuToggle">☰</button>
+                <h1 class="page-title"><?= $pageTitle ?? 'Dashboard' ?></h1>
+            </div>
+            
+            <div class="nav-right">
+                <div class="nav-actions">
+                    <a href="/profile" class="user-btn">
+                        <span class="user-avatar-small"><?= strtoupper(substr($_SESSION['username'] ?? 'U', 0, 1)) ?></span>
+                        <span class="user-name"><?= htmlspecialchars($_SESSION['username'] ?? 'User') ?></span>
+                    </a>
+                </div>
+            </div>
+        </header>
+        
+        <!-- Page Content -->
+        <div class="page-content">
+            <?php if (isset($_SESSION['flash_messages'])): ?>
+                <?php foreach ($_SESSION['flash_messages'] as $type => $message): ?>
+                    <div class="alert alert-<?= $type ?>">
+                        <div class="alert-icon">
+                            <?= $type === 'success' ? '✅' : ($type === 'error' ? '❌' : 'ℹ️') ?>
+                        </div>
+                        <div class="alert-content">
+                            <?= htmlspecialchars($message) ?>
+                        </div>
+                    </div>
+                <?php endforeach; ?>
+                <?php unset($_SESSION['flash_messages']); ?>
+            <?php endif; ?>
+
+<style>
+.sidebar {
+    background: var(--white);
+    box-shadow: var(--shadow-lg);
+    height: 100vh;
+    position: fixed;
+    left: 0;
+    top: 0;
+    width: 280px;
+    z-index: 1000;
+    overflow-y: auto;
+}
+
+.sidebar-header {
+    padding: 1.5rem;
+    border-bottom: 1px solid var(--gray-200);
+}
+
+.sidebar-brand {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.sidebar-logo {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+}
+
+.sidebar-title {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--gray-900);
+    margin: 0;
+}
+
+.sidebar-nav {
+    padding: 1rem;
+}
+
+.nav-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.nav-item {
+    margin-bottom: 0.25rem;
+}
+
+.nav-link {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    color: var(--gray-600);
+    text-decoration: none;
+    border-radius: 0.5rem;
+    transition: all 0.15s ease;
+    font-weight: 500;
+}
+
+.nav-link:hover,
+.nav-link.active {
+    background-color: var(--primary-color);
+    color: var(--white);
+}
+
+.nav-icon {
+    font-size: 1.125rem;
+    width: 20px;
+    text-align: center;
+}
+
+.sidebar-footer {
+    padding: 1rem;
+    border-top: 1px solid var(--gray-200);
+    margin-top: auto;
+}
+
+.user-info {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+}
+
+.user-avatar {
+    width: 40px;
+    height: 40px;
+    background-color: var(--primary-color);
+    color: var(--white);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+}
+
+.user-name {
+    font-weight: 600;
+    color: var(--gray-900);
+    font-size: 0.875rem;
+}
+
+.user-role {
+    color: var(--gray-500);
+    font-size: 0.75rem;
+}
+
+.logout-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem;
+    color: var(--danger-color);
+    text-decoration: none;
+    border-radius: 0.5rem;
+    transition: all 0.15s ease;
+    font-weight: 500;
+}
+
+.logout-btn:hover {
+    background-color: var(--danger-color);
+    color: var(--white);
+}
+
+.main-content {
+    margin-left: 280px;
+    min-height: 100vh;
+    background-color: var(--gray-50);
+}
+
+.top-nav {
+    background: var(--white);
+    box-shadow: var(--shadow-sm);
+    padding: 1rem 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+}
+
+.nav-left {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.menu-toggle {
+    display: none;
+    background: none;
+    border: none;
+    font-size: 1.25rem;
+    cursor: pointer;
+    padding: 0.5rem;
+    border-radius: 0.25rem;
+    color: var(--gray-600);
+}
+
+.page-title {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: var(--gray-900);
+    margin: 0;
+}
+
+.nav-actions {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.user-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    background: none;
+    border: 1px solid var(--gray-300);
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.375rem;
+    text-decoration: none;
+    color: var(--gray-700);
+    transition: all 0.15s ease;
+}
+
+.user-btn:hover {
+    background-color: var(--gray-50);
+    border-color: var(--gray-400);
+}
+
+.user-avatar-small {
+    width: 32px;
+    height: 32px;
+    background-color: var(--primary-color);
+    color: var(--white);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 0.875rem;
+}
+
+.page-content {
+    padding: 1.5rem;
+}
+
+@media (max-width: 768px) {
+    .sidebar {
+        transform: translateX(-100%);
+        transition: transform 0.3s ease;
+    }
+    
+    .sidebar.show {
+        transform: translateX(0);
+    }
+    
+    .main-content {
+        margin-left: 0;
+    }
+    
+    .menu-toggle {
+        display: block;
+    }
+}
+</style>
+
+<script>
+document.getElementById('menuToggle').addEventListener('click', function() {
+    document.getElementById('sidebar').classList.toggle('show');
+});
+
+// Auto-hide alerts
+setTimeout(function() {
+    const alerts = document.querySelectorAll('.alert');
+    alerts.forEach(function(alert) {
+        alert.style.opacity = '0';
+        setTimeout(function() {
+            alert.style.display = 'none';
+        }, 300);
+    });
+}, 5000);
+</script>

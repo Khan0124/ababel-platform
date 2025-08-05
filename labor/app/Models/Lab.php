@@ -1,95 +1,81 @@
 <?php
-
 namespace App\Models;
 
-use App\Core\Model;
-
-class Lab extends Model
-{
+class Lab extends BaseModel {
     protected $table = 'labs';
     protected $fillable = [
-        'name', 'email', 'password', 'phone', 'address', 
-        'city', 'logo', 'subscription_type', 'subscription_end', 
-        'is_active', 'settings'
+        'name', 'email', 'phone', 'address', 'logo', 'status', 
+        'subscription_type', 'subscription_end_date', 'created_at', 'updated_at'
     ];
-    protected $hidden = ['password'];
+    protected $casts = [
+        'status' => 'bool',
+        'subscription_end_date' => 'date'
+    ];
     
-    public function setPasswordAttribute($value)
-    {
-        $this->attributes['password'] = password_hash($value, PASSWORD_DEFAULT);
+    /**
+     * Get active labs
+     */
+    public function getActiveLabs(): array {
+        return $this->findAll(['status' => 1], ['name' => 'ASC']);
     }
     
-    public function getEmployees()
-    {
-        return Employee::all(['lab_id' => $this->id]);
+    /**
+     * Get labs with expiring subscriptions
+     */
+    public function getLabsWithExpiringSubscriptions(int $days = 7): array {
+        $sql = "
+            SELECT * FROM {$this->table} 
+            WHERE subscription_end_date BETWEEN NOW() AND DATE_ADD(NOW(), INTERVAL ? DAY)
+            AND status = 1
+            ORDER BY subscription_end_date ASC
+        ";
+        
+        return $this->rawQuery($sql, [$days]);
     }
     
-    public function getActiveEmployees()
-    {
-        return Employee::all(['lab_id' => $this->id, 'status' => 'نشط']);
+    /**
+     * Get lab statistics
+     */
+    public function getLabStats(int $labId): array {
+        $sql = "
+            SELECT 
+                (SELECT COUNT(*) FROM patients WHERE lab_id = ?) AS total_patients,
+                (SELECT COUNT(*) FROM exam_catalog WHERE lab_id = ?) AS total_exams,
+                (SELECT COUNT(*) FROM lab_employees WHERE lab_id = ?) AS total_employees,
+                (SELECT COUNT(*) FROM patient_exams WHERE lab_id = ?) AS total_results,
+                (SELECT COUNT(*) FROM cashbox WHERE lab_id = ?) AS total_transactions,
+                (SELECT COUNT(*) FROM patient_exams WHERE lab_id = ? AND status != 'تم التسليم') AS unsubmitted_count
+        ";
+        
+        $result = $this->rawQuerySingle($sql, [$labId, $labId, $labId, $labId, $labId, $labId]);
+        return $result ?: [];
     }
     
-    public function getPatients($limit = null)
-    {
-        $conditions = ['lab_id' => $this->id];
-        return Patient::all($conditions, 'created_at DESC', $limit);
+    /**
+     * Update lab status
+     */
+    public function updateStatus(int $labId, bool $status): bool {
+        return $this->update($labId, ['status' => $status]);
     }
     
-    public function getExams()
-    {
-        return Exam::all(['lab_id' => $this->id]);
+    /**
+     * Get labs by subscription type
+     */
+    public function getLabsBySubscriptionType(string $type): array {
+        return $this->findAll(['subscription_type' => $type], ['name' => 'ASC']);
     }
     
-    public function getTodayTransactions()
-    {
-        $stmt = $this->db->prepare("
-            SELECT * FROM transactions 
-            WHERE lab_id = ? AND DATE(created_at) = CURDATE()
-            ORDER BY created_at DESC
-        ");
-        $stmt->execute([$this->id]);
-        return $stmt->fetchAll();
+    /**
+     * Search labs by name or email
+     */
+    public function searchLabs(string $query): array {
+        $sql = "
+            SELECT * FROM {$this->table} 
+            WHERE name LIKE ? OR email LIKE ? OR phone LIKE ?
+            ORDER BY name ASC
+        ";
+        
+        $searchTerm = "%{$query}%";
+        return $this->rawQuery($sql, [$searchTerm, $searchTerm, $searchTerm]);
     }
-    
-    public function getMonthlyRevenue()
-    {
-        $stmt = $this->db->prepare("
-            SELECT SUM(amount) as total 
-            FROM transactions 
-            WHERE lab_id = ? 
-            AND type = 'income' 
-            AND MONTH(created_at) = MONTH(CURRENT_DATE())
-            AND YEAR(created_at) = YEAR(CURRENT_DATE())
-        ");
-        $stmt->execute([$this->id]);
-        return $stmt->fetch()['total'] ?? 0;
-    }
-    
-    public function isSubscriptionActive()
-    {
-        if (!$this->subscription_end) {
-            return false;
-        }
-        return strtotime($this->subscription_end) > time();
-    }
-    
-    public function getDaysUntilExpiry()
-    {
-        if (!$this->subscription_end) {
-            return 0;
-        }
-        $diff = strtotime($this->subscription_end) - time();
-        return max(0, ceil($diff / 86400));
-    }
-    
-    public function updateSettings($settings)
-    {
-        $this->settings = json_encode($settings);
-        return $this->save();
-    }
-    
-    public function getSettings()
-    {
-        return json_decode($this->settings, true) ?? [];
-    }
-}
+} 

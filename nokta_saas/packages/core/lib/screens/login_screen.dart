@@ -39,67 +39,59 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (result['success']) {
         final session = Provider.of<Session>(context, listen: false);
-        await session.login(
-          result['user'],
-          result['token'],
-          tenantId,
-        );
+        await session.login(result['user'], result['token'], tenantId);
 
         Navigator.pushReplacementNamed(context, '/home');
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(result['message'])),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(result['message'])));
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('خطأ في الاتصال: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('خطأ في الاتصال: $e')));
     } finally {
       setState(() => isLoading = false);
     }
   }
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('تسجيل الدخول')),
-      body: Padding(
-        padding: const EdgeInsets.all(20.0),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              TextFormField(
-                controller: _tenantController,
-                decoration: const InputDecoration(labelText: 'معرف المستأجر'),
-                validator: (value) => value!.isEmpty ? 'أدخل معرف المستأجر' : null,
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _usernameController,
-                decoration: const InputDecoration(labelText: 'اسم المستخدم'),
-                validator: (value) => value!.isEmpty ? 'أدخل اسم المستخدم' : null,
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _passwordController,
-                decoration: const InputDecoration(labelText: 'كلمة المرور'),
-                obscureText: true,
-                validator: (value) => value!.isEmpty ? 'أدخل كلمة المرور' : null,
-              ),
-              const SizedBox(height: 24),
-              isLoading
-                  ? const CircularProgressIndicator()
-                  : ElevatedButton(
-                onPressed: _login,
-                child: const Text('دخول'),
-              ),
-            ],
-          ),
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(title: const Text('تسجيل الدخول')),
+    body: Padding(
+      padding: const EdgeInsets.all(20.0),
+      child: Form(
+        key: _formKey,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            TextFormField(
+              controller: _tenantController,
+              decoration: const InputDecoration(labelText: 'معرف المستأجر'),
+              validator: (value) =>
+                  value!.isEmpty ? 'أدخل معرف المستأجر' : null,
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _usernameController,
+              decoration: const InputDecoration(labelText: 'اسم المستخدم'),
+              validator: (value) => value!.isEmpty ? 'أدخل اسم المستخدم' : null,
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _passwordController,
+              decoration: const InputDecoration(labelText: 'كلمة المرور'),
+              obscureText: true,
+              validator: (value) => value!.isEmpty ? 'أدخل كلمة المرور' : null,
+            ),
+            const SizedBox(height: 24),
+            isLoading
+                ? const CircularProgressIndicator()
+                : ElevatedButton(onPressed: _login, child: const Text('دخول')),
+          ],
         ),
       ),
-    );
-  }
+    ),
+  );
 }

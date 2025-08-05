@@ -7,5 +7,5 @@ if (isset($_GET['id'])) {
     $id = intval($_GET['id']);
     $conn->query("DELETE FROM labs WHERE id = $id");
 }
-header("Location: /admin/labs");
+header("Location: labs_list.php");
 exit;

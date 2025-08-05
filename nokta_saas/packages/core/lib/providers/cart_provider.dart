@@ -1,96 +1,155 @@
-// packages/core/lib/providers/cart_provider.dart
-@freezed
-class CartState with _$CartState {
-  const factory CartState({
-    Restaurant? restaurant,
-    @Default([]) List<CartItem> items,
-    Coupon? appliedCoupon,
-    @Default(0) double deliveryFee,
-    @Default(0) double taxAmount,
-  }) = _CartState;
-  
-  const CartState._();
-  
-  double get subtotal => items.fold(0, (sum, item) => sum + item.totalPrice);
-  double get discount => appliedCoupon?.calculateDiscount(subtotal) ?? 0;
-  double get total => subtotal - discount + deliveryFee + taxAmount;
-  int get totalItems => items.fold(0, (sum, item) => sum + item.quantity);
-}
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../models/product.dart';
+import '../models/cart_item.dart';
 
-class CartNotifier extends StateNotifier<CartState> {
-  CartNotifier() : super(const CartState());
-  
-  void addItem(Product product, Restaurant restaurant) {
-    // Check if switching restaurants
-    if (state.restaurant != null && state.restaurant!.id != restaurant.id) {
-      // Show confirmation dialog
-      return;
-    }
-    
-    final existingIndex = state.items.indexWhere((item) => 
-      item.product.id == product.id && 
-      item.modifiers.equals(product.selectedModifiers)
+class CartNotifier extends StateNotifier<List<CartItem>> {
+  CartNotifier() : super([]);
+
+  // Add item to cart
+  void addItem(Product product, {int quantity = 1}) {
+    final existingIndex = state.indexWhere(
+      (item) => item.product.id == product.id,
     );
-    
+
     if (existingIndex >= 0) {
-      // Increment quantity
-      final items = [...state.items];
-      items[existingIndex] = items[existingIndex].copyWith(
-        quantity: items[existingIndex].quantity + 1,
+      // Update existing item quantity
+      final existingItem = state[existingIndex];
+      final newQuantity = existingItem.quantity + quantity;
+      final updatedItem = existingItem.copyWith(
+        quantity: newQuantity,
+        totalPrice: product.price * newQuantity,
       );
-      state = state.copyWith(items: items);
+
+      state = [
+        ...state.sublist(0, existingIndex),
+        updatedItem,
+        ...state.sublist(existingIndex + 1),
+      ];
     } else {
       // Add new item
-      state = state.copyWith(
-        restaurant: restaurant,
-        items: [
-          ...state.items,
-          CartItem(
-            product: product,
-            modifiers: product.selectedModifiers,
-            quantity: 1,
-          ),
-        ],
+      final newItem = CartItem.fromProduct(product, quantity: quantity);
+      state = [...state, newItem];
+    }
+  }
+
+  // Remove item from cart
+  void removeItem(int productId) {
+    state = state.where((item) => item.product.id != productId).toList();
+  }
+
+  // Update item quantity
+  void updateQuantity(int productId, int quantity) {
+    if (quantity <= 0) {
+      removeItem(productId);
+      return;
+    }
+
+    final index = state.indexWhere((item) => item.product.id == productId);
+    if (index >= 0) {
+      final item = state[index];
+      final updatedItem = item.copyWith(
+        quantity: quantity,
+        totalPrice: item.product.price * quantity,
       );
-    }
-    
-    // Recalculate fees
-    _updateFees();
-  }
-  
-  void removeItem(int index) {
-    final items = [...state.items];
-    items.removeAt(index);
-    
-    if (items.isEmpty) {
-      state = const CartState();
-    } else {
-      state = state.copyWith(items: items);
-      _updateFees();
+
+      state = [
+        ...state.sublist(0, index),
+        updatedItem,
+        ...state.sublist(index + 1),
+      ];
     }
   }
-  
-  void applyCoupon(Coupon coupon) {
-    if (coupon.isValidFor(state.restaurant!, state.subtotal)) {
-      state = state.copyWith(appliedCoupon: coupon);
+
+  // Update item notes
+  void updateNotes(int productId, String notes) {
+    final index = state.indexWhere((item) => item.product.id == productId);
+    if (index >= 0) {
+      final item = state[index];
+      final updatedItem = item.copyWith(notes: notes);
+
+      state = [
+        ...state.sublist(0, index),
+        updatedItem,
+        ...state.sublist(index + 1),
+      ];
     }
   }
-  
-  void _updateFees() {
-    if (state.restaurant != null) {
-      final taxAmount = state.subtotal * state.restaurant!.taxRate / 100;
-      state = state.copyWith(
-        taxAmount: taxAmount,
-        deliveryFee: state.restaurant!.deliveryFee,
-      );
-    }
-  }
-  
+
+  // Clear cart
   void clear() {
-    state = const CartState();
+    state = [];
+  }
+
+  // Get cart totals
+  CartTotals get totals {
+    final subtotal = state.fold<double>(
+      0,
+      (sum, item) => sum + item.totalPrice,
+    );
+    final tax = subtotal * 0.15; // 15% tax
+    final total = subtotal + tax;
+
+    return CartTotals(
+      subtotal: subtotal,
+      tax: tax,
+      total: total,
+      itemCount: state.fold<int>(0, (sum, item) => sum + item.quantity),
+    );
+  }
+
+  // Check if product is in cart
+  bool isInCart(int productId) =>
+      state.any((item) => item.product.id == productId);
+
+  // Get item quantity in cart
+  int getQuantity(int productId) {
+    final item = state
+        .where((item) => item.product.id == productId)
+        .firstOrNull;
+    return item?.quantity ?? 0;
   }
 }
 
-final cartProvider = StateNotifierProvider<CartNotifier, CartState>((ref) {
-  return CartNotifier();
+// Cart totals model
+class CartTotals {
+  CartTotals({
+    required this.subtotal,
+    required this.tax,
+    required this.total,
+    required this.itemCount,
+  });
+  final double subtotal;
+  final double tax;
+  final double total;
+  final int itemCount;
+}
+
+// Providers
+final cartProvider = StateNotifierProvider<CartNotifier, List<CartItem>>(
+  (ref) => CartNotifier(),
+);
+
+final cartTotalsProvider = Provider<CartTotals>((ref) {
+  final cart = ref.watch(cartProvider.notifier);
+  return cart.totals;
 });
+
+final cartItemCountProvider = Provider<int>((ref) {
+  final cartItems = ref.watch(cartProvider);
+  return cartItems.fold<int>(0, (sum, item) => sum + item.quantity);
+});
+
+final cartSubtotalProvider = Provider<double>((ref) {
+  final cartItems = ref.watch(cartProvider);
+  return cartItems.fold<double>(0, (sum, item) => sum + item.totalPrice);
+});
+
+final isCartEmptyProvider = Provider<bool>((ref) {
+  final cartItems = ref.watch(cartProvider);
+  return cartItems.isEmpty;
+});
+
+// Helper extension
+extension ListExtension<T> on List<T> {
+  T? get firstOrNull => isEmpty ? null : first;
+}

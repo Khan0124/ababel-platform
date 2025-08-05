@@ -8,72 +8,71 @@ class _DriverHomeScreenState extends ConsumerState<DriverHomeScreen> {
   bool _isOnline = false;
   StreamSubscription? _locationSubscription;
   StreamSubscription? _orderSubscription;
-  
+
   @override
   void initState() {
     super.initState();
     _requestLocationPermission();
   }
-  
+
   Future<void> _requestLocationPermission() async {
     final permission = await Geolocator.requestPermission();
     if (permission == LocationPermission.denied) {
       // Show permission dialog
       return;
     }
-    
+
     // Start location tracking
     _startLocationTracking();
   }
-  
+
   void _startLocationTracking() {
-    _locationSubscription = Geolocator.getPositionStream(
-      locationSettings: const LocationSettings(
-        accuracy: LocationAccuracy.high,
-        distanceFilter: 10, // Update every 10 meters
-      ),
-    ).listen((position) {
-      if (_isOnline) {
-        ref.read(driverServiceProvider).updateLocation(
-          lat: position.latitude,
-          lng: position.longitude,
-        );
-      }
-    });
+    _locationSubscription =
+        Geolocator.getPositionStream(
+          locationSettings: const LocationSettings(
+            accuracy: LocationAccuracy.high,
+            distanceFilter: 10, // Update every 10 meters
+          ),
+        ).listen((position) {
+          if (_isOnline) {
+            ref
+                .read(driverServiceProvider)
+                .updateLocation(
+                  lat: position.latitude,
+                  lng: position.longitude,
+                );
+          }
+        });
   }
-  
+
   void _toggleOnlineStatus() {
     setState(() => _isOnline = !_isOnline);
     ref.read(driverServiceProvider).setOnlineStatus(_isOnline);
-    
+
     if (_isOnline) {
       _subscribeToOrders();
     } else {
       _orderSubscription?.cancel();
     }
   }
-  
+
   void _subscribeToOrders() {
-    _orderSubscription = ref.read(realtimeServiceProvider)
+    _orderSubscription = ref
+        .read(realtimeServiceProvider)
         .subscribeToDriverOrders()
-        .listen((order) {
-      _showNewOrderDialog(order);
-    });
+        .listen(_showNewOrderDialog);
   }
-  
+
   @override
   Widget build(BuildContext context) {
     final earnings = ref.watch(todayEarningsProvider);
     final activeOrder = ref.watch(activeOrderProvider);
-    
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Nokta Driver'),
         actions: [
-          Switch(
-            value: _isOnline,
-            onChanged: (_) => _toggleOnlineStatus(),
-          ),
+          Switch(value: _isOnline, onChanged: (_) => _toggleOnlineStatus()),
           const SizedBox(width: 16),
         ],
       ),
@@ -87,7 +86,7 @@ class _DriverHomeScreenState extends ConsumerState<DriverHomeScreen> {
             child: Column(
               children: [
                 Text(
-                  'Today\'s Earnings',
+                  "Today's Earnings",
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
                 const SizedBox(height: 8),
@@ -103,13 +102,16 @@ class _DriverHomeScreenState extends ConsumerState<DriverHomeScreen> {
                   children: [
                     _buildStat('Trips', earnings.tripCount.toString()),
                     _buildStat('Online', formatDuration(earnings.onlineTime)),
-                    _buildStat('Distance', '${earnings.distance.toStringAsFixed(1)} km'),
+                    _buildStat(
+                      'Distance',
+                      '${earnings.distance.toStringAsFixed(1)} km',
+                    ),
                   ],
                 ),
               ],
             ),
           ),
-          
+
           // Active Order or Waiting
           Expanded(
             child: activeOrder != null
@@ -124,7 +126,7 @@ class _DriverHomeScreenState extends ConsumerState<DriverHomeScreen> {
       drawer: const DriverDrawer(),
     );
   }
-  
+
   void _showNewOrderDialog(DeliveryOrder order) {
     showDialog(
       context: context,

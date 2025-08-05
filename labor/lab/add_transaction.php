@@ -1,7 +1,7 @@
 <?php
 ini_set('display_errors', 1);
 error_reporting(E_ALL);
-include 'auth_employee.php';
+include 'auth_check.php';
 include '../includes/config.php';
 
 $type = $_GET['type'] ?? 'قبض';

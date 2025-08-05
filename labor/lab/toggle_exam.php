@@ -1,7 +1,7 @@
 <?php
 ob_start();
 session_start();
-include 'auth_employee.php';
+include '../includes/auth_employee.php';
 include '../includes/config.php';
 
 header('Content-Type: application/json');

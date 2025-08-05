@@ -50,9 +50,9 @@ class _PosScreenState extends State<PosScreen> {
       setState(() {
         _isLoadingProducts = false;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('خطأ في تحميل المنتجات: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('خطأ في تحميل المنتجات: $e')));
     }
   }
 
@@ -116,20 +116,21 @@ class _PosScreenState extends State<PosScreen> {
           _customerPhoneCtrl.clear();
           _customerAddressCtrl.clear();
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('تم حفظ الطلب بنجاح')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('تم حفظ الطلب بنجاح')));
       } else {
         // مستقبلًا: إضافة دعم API للويب
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-              content: Text('تم حفظ الطلب (نسخة الويب - عرض فقط حالياً)')),
+            content: Text('تم حفظ الطلب (نسخة الويب - عرض فقط حالياً)'),
+          ),
         );
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('خطأ في حفظ الطلب: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('خطأ في حفظ الطلب: $e')));
     } finally {
       setState(() {
         _isSubmittingOrder = false;
@@ -138,130 +139,125 @@ class _PosScreenState extends State<PosScreen> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('نقطة البيع')),
-      body: Row(
-        children: [
-          // جزء الفاتورة
-          Expanded(
-            flex: 2,
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const Text('الفاتورة', style: TextStyle(fontSize: 20)),
-                  const Divider(),
-                  if (_cart.isEmpty)
-                    const Center(child: Text('السلة فارغة')),
-                  ..._cart.map(
-                        (item) => ListTile(
-                      title: Text('${item.product.name} × ${item.quantity}'),
-                      trailing: Text(
-                          '${(item.product.price * item.quantity).toStringAsFixed(2)} SDG'),
-                      onTap: () => _removeFromCart(item),
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(title: const Text('نقطة البيع')),
+    body: Row(
+      children: [
+        // جزء الفاتورة
+        Expanded(
+          flex: 2,
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Text('الفاتورة', style: TextStyle(fontSize: 20)),
+                const Divider(),
+                if (_cart.isEmpty) const Center(child: Text('السلة فارغة')),
+                ..._cart.map(
+                  (item) => ListTile(
+                    title: Text('${item.product.name} × ${item.quantity}'),
+                    trailing: Text(
+                      '${(item.product.price * item.quantity).toStringAsFixed(2)} SDG',
                     ),
+                    onTap: () => _removeFromCart(item),
                   ),
-                  const Divider(),
-                  Text(
-                    'الإجمالي: ${_total.toStringAsFixed(2)} SDG',
-                    style: const TextStyle(fontSize: 18),
+                ),
+                const Divider(),
+                Text(
+                  'الإجمالي: ${_total.toStringAsFixed(2)} SDG',
+                  style: const TextStyle(fontSize: 18),
+                ),
+                const SizedBox(height: 8),
+                DropdownButtonFormField<String>(
+                  value: _orderType,
+                  items: ['محلي', 'سفري', 'توصيل']
+                      .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+                      .toList(),
+                  onChanged: (val) {
+                    setState(() {
+                      _orderType = val!;
+                    });
+                  },
+                  decoration: const InputDecoration(labelText: 'نوع الطلب'),
+                ),
+                if (_orderType == 'توصيل') ...[
+                  TextField(
+                    controller: _customerNameCtrl,
+                    decoration: const InputDecoration(labelText: 'اسم العميل'),
                   ),
-                  const SizedBox(height: 8),
-                  DropdownButtonFormField<String>(
-                    value: _orderType,
-                    items: ['محلي', 'سفري', 'توصيل']
-                        .map((e) => DropdownMenuItem(value: e, child: Text(e)))
-                        .toList(),
-                    onChanged: (val) {
-                      setState(() {
-                        _orderType = val!;
-                      });
-                    },
-                    decoration: const InputDecoration(labelText: 'نوع الطلب'),
+                  TextField(
+                    controller: _customerPhoneCtrl,
+                    decoration: const InputDecoration(labelText: 'رقم الهاتف'),
+                    keyboardType: TextInputType.phone,
                   ),
-                  if (_orderType == 'توصيل') ...[
-                    TextField(
-                      controller: _customerNameCtrl,
-                      decoration:
-                      const InputDecoration(labelText: 'اسم العميل'),
-                    ),
-                    TextField(
-                      controller: _customerPhoneCtrl,
-                      decoration:
-                      const InputDecoration(labelText: 'رقم الهاتف'),
-                      keyboardType: TextInputType.phone,
-                    ),
-                    TextField(
-                      controller: _customerAddressCtrl,
-                      decoration: const InputDecoration(labelText: 'العنوان'),
-                    ),
-                  ],
-                  const SizedBox(height: 8),
-                  DropdownButtonFormField<String>(
-                    value: _paymentMethod,
-                    items: ['نقدًا', 'بطاقة', 'تحويل بنكي']
-                        .map((e) => DropdownMenuItem(value: e, child: Text(e)))
-                        .toList(),
-                    onChanged: (val) {
-                      setState(() {
-                        _paymentMethod = val!;
-                      });
-                    },
-                    decoration: const InputDecoration(labelText: 'طريقة الدفع'),
-                  ),
-                  const SizedBox(height: 12),
-                  _isSubmittingOrder
-                      ? const Center(child: CircularProgressIndicator())
-                      : ElevatedButton(
-                    onPressed: _submitOrder,
-                    child: const Text('دفع و حفظ الطلب'),
+                  TextField(
+                    controller: _customerAddressCtrl,
+                    decoration: const InputDecoration(labelText: 'العنوان'),
                   ),
                 ],
-              ),
-            ),
-          ),
-          // جزء الكتالوج
-          Expanded(
-            flex: 3,
-            child: _isLoadingProducts
-                ? const Center(child: CircularProgressIndicator())
-                : _catalog.isEmpty
-                ? const Center(child: Text('لا توجد أصناف'))
-                : GridView.builder(
-              padding: const EdgeInsets.all(8),
-              gridDelegate:
-              const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                childAspectRatio: .9,
-                crossAxisSpacing: 8,
-                mainAxisSpacing: 8,
-              ),
-              itemCount: _catalog.length,
-              itemBuilder: (_, i) {
-                final p = _catalog[i];
-                return InkWell(
-                  onTap: () => _addToCart(p),
-                  child: Card(
-                    elevation: 2,
-                    child: Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(p.name, textAlign: TextAlign.center),
-                          const SizedBox(height: 6),
-                          Text('${p.price.toStringAsFixed(2)} SDG'),
-                        ],
+                const SizedBox(height: 8),
+                DropdownButtonFormField<String>(
+                  value: _paymentMethod,
+                  items: ['نقدًا', 'بطاقة', 'تحويل بنكي']
+                      .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+                      .toList(),
+                  onChanged: (val) {
+                    setState(() {
+                      _paymentMethod = val!;
+                    });
+                  },
+                  decoration: const InputDecoration(labelText: 'طريقة الدفع'),
+                ),
+                const SizedBox(height: 12),
+                _isSubmittingOrder
+                    ? const Center(child: CircularProgressIndicator())
+                    : ElevatedButton(
+                        onPressed: _submitOrder,
+                        child: const Text('دفع و حفظ الطلب'),
                       ),
-                    ),
-                  ),
-                );
-              },
+              ],
             ),
           ),
-        ],
-      ),
-    );
-  }
+        ),
+        // جزء الكتالوج
+        Expanded(
+          flex: 3,
+          child: _isLoadingProducts
+              ? const Center(child: CircularProgressIndicator())
+              : _catalog.isEmpty
+              ? const Center(child: Text('لا توجد أصناف'))
+              : GridView.builder(
+                  padding: const EdgeInsets.all(8),
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    childAspectRatio: .9,
+                    crossAxisSpacing: 8,
+                    mainAxisSpacing: 8,
+                  ),
+                  itemCount: _catalog.length,
+                  itemBuilder: (_, i) {
+                    final p = _catalog[i];
+                    return InkWell(
+                      onTap: () => _addToCart(p),
+                      child: Card(
+                        elevation: 2,
+                        child: Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(p.name, textAlign: TextAlign.center),
+                              const SizedBox(height: 6),
+                              Text('${p.price.toStringAsFixed(2)} SDG'),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+        ),
+      ],
+    ),
+  );
 }

@@ -23,7 +23,7 @@ if (!$labs) {
 <div class="container py-5">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h2 class="text-primary">🧪 قائمة المعامل</h2>
-        <a href="/admin/add_lab" class="btn btn-danger">➕ إضافة معمل جديد</a>
+        <a href="add_lab.php" class="btn btn-danger">➕ إضافة معمل جديد</a>
     </div>
     <div class="table-responsive">
         <table class="table table-bordered table-hover align-middle text-center">
@@ -52,9 +52,9 @@ if (!$labs) {
                         </span>
                     </td>
                     <td>
-                        <a href="/admin/edit_lab?id=<?= $row['id'] ?>" class="btn btn-sm btn-primary">تعديل</a>
-                        <a href="/admin/delete_lab?id=<?= $row['id'] ?>" onclick="return confirm('هل أنت متأكد؟')" class="btn btn-sm btn-danger">حذف</a>
-                        <a href="/admin/toggle_lab?id=<?= $row['id'] ?>" class="btn btn-sm btn-warning">تفعيل/تعطيل</a>
+                        <a href="edit_lab.php?id=<?= $row['id'] ?>" class="btn btn-sm btn-primary">تعديل</a>
+                        <a href="delete_lab.php?id=<?= $row['id'] ?>" onclick="return confirm('هل أنت متأكد؟')" class="btn btn-sm btn-danger">حذف</a>
+                        <a href="toggle_lab.php?id=<?= $row['id'] ?>" class="btn btn-sm btn-warning">تفعيل/تعطيل</a>
                     </td>
                 </tr>
                 <?php endwhile; ?>

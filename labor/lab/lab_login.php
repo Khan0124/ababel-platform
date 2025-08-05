@@ -1,233 +1,144 @@
 <?php
+// تسجيل دخول آمن للموظفين
 session_start();
 include '../includes/config.php';
-include '../includes/csrf.php';
+include '../includes/session_manager.php';
+
+// إعادة التوجيه إذا كان مسجل دخول بالفعل
+if (isset($_SESSION['employee_id'])) {
+    header("Location: lab_dashboard.php");
+    exit;
+}
+
+$sessionManager = new SessionManager($conn);
+$security = new SecurityManager($conn);
 
 $error = '';
-$login_attempts = $_SESSION['lab_login_attempts'] ?? 0;
-$last_attempt_time = $_SESSION['lab_last_attempt_time'] ?? 0;
+$success = '';
 
-// Rate limiting: Allow max 5 attempts per 15 minutes
-if ($login_attempts >= 5 && (time() - $last_attempt_time) < 900) {
-    $remaining_time = 900 - (time() - $last_attempt_time);
-    $error = 'تم تجاوز عدد المحاولات المسموح. يرجى المحاولة بعد ' . ceil($remaining_time / 60) . ' دقيقة';
-} elseif ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    // Verify CSRF token
-    if (!isset($_POST['csrf_token']) || !verifyCSRFToken($_POST['csrf_token'])) {
-        $error = 'خطأ في الأمان. يرجى المحاولة مرة أخرى';
-    } else {
-        $email = filter_var($_POST['email'], FILTER_SANITIZE_EMAIL);
-        $password = $_POST['password'];
-
-    $stmt = $conn->prepare("SELECT * FROM lab_employees WHERE email = ? AND status = 'نشط' LIMIT 1");
-    $stmt->bind_param("s", $email);
-    $stmt->execute();
-    $result = $stmt->get_result();
-
-    if ($result->num_rows > 0) {
-        $user = $result->fetch_assoc();
-        if (password_verify($password, $user['password'])) {
-            $_SESSION['employee_id'] = $user['id'];
-            $_SESSION['employee_name'] = $user['name'];
-            $_SESSION['employee_role'] = $user['role'];
-            $_SESSION['lab_id'] = $user['lab_id'];
-            header("Location: /lab/dashboard");
-            exit;
-        } else {
-            $error = "كلمة المرور غير صحيحة";
-            $_SESSION['lab_login_attempts'] = ($login_attempts >= 5 && (time() - $last_attempt_time) >= 900) ? 1 : $login_attempts + 1;
-            $_SESSION['lab_last_attempt_time'] = time();
-        }
-    } else {
-        $error = "الحساب غير موجود أو غير نشط";
-        $_SESSION['lab_login_attempts'] = ($login_attempts >= 5 && (time() - $last_attempt_time) >= 900) ? 1 : $login_attempts + 1;
-        $_SESSION['lab_last_attempt_time'] = time();
-    }
+// معالجة رسائل النظام
+if (isset($_GET['error'])) {
+    switch ($_GET['error']) {
+        case 'session_expired':
+            $error = 'انتهت صلاحية الجلسة، يرجى تسجيل الدخول مرة أخرى';
+            break;
+        case 'lab_inactive':
+            $error = 'المختبر غير مفعل حالياً';
+            break;
+        case 'unauthorized':
+            $error = 'غير مصرح لك بالوصول';
+            break;
     }
 }
+
+if (isset($_GET['success']) && $_GET['success'] === 'logout') {
+    $success = 'تم تسجيل الخروج بنجاح';
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    try {
+        // التحقق من CSRF Token
+        if (!isset($_POST['csrf_token']) || !$security->verifyCSRFToken($_POST['csrf_token'])) {
+            throw new Exception('رمز الأمان غير صحيح');
+        }
+        
+        $username = $security->sanitizeInput($_POST['username']);
+        $password = $_POST['password'];
+        
+        // التحقق من المدخلات
+        if (empty($username) || empty($password)) {
+            throw new Exception('يرجى ملء جميع الحقول المطلوبة');
+        }
+        
+        // محاولة تسجيل الدخول
+        $login_result = $sessionManager->employeeLogin($username, $password);
+        
+        if ($login_result['success']) {
+            header("Location: lab_dashboard.php");
+            exit;
+        }
+        
+    } catch (Exception $e) {
+        $error = $e->getMessage();
+    }
+}
+
+// إنشاء CSRF Token للنموذج
+$csrf_token = $security->generateCSRFToken();
 ?>
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
+    <title>تسجيل دخول موظف المختبر</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>تسجيل دخول موظف المعمل - نظام إدارة المعامل</title>
-    <meta name="description" content="تسجيل دخول موظف المعمل لنظام إدارة المعامل">
-    <link rel="icon" type="image/png" href="/assets/favicon.png">
-    <link href="/assets/login-style.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="../assets/auth-modern.css">
 </head>
-<body class="login-page">
-    <div class="login-wrapper">
-        <div class="login-card">
-            <div class="login-header">
-                <div class="login-logo" style="background: linear-gradient(135deg, #27ae60, #2ecc71);">
-                    <i class="fas fa-flask"></i>
-                </div>
-                <h1 class="login-title">تسجيل دخول موظف المعمل</h1>
-                <p class="login-subtitle">الوصول إلى لوحة تحكم المعمل</p>
-            </div>
-            
-            <?php if ($error): ?>
-                <div class="alert alert-danger" role="alert">
-                    <i class="fas fa-exclamation-circle alert-icon"></i>
-                    <span><?= htmlspecialchars($error) ?></span>
-                </div>
-            <?php endif; ?>
-            
-            <form method="post" id="loginForm" novalidate>
-                <?= generateCSRFField() ?>
-                <div class="form-group">
-                    <label for="email" class="form-label">البريد الإلكتروني</label>
-                    <input 
-                        type="email" 
-                        id="email"
-                        name="email" 
-                        class="form-control" 
-                        placeholder="example@domain.com"
-                        autocomplete="email"
-                        required
-                        autofocus
-                    >
-                    <div class="invalid-feedback" style="display: none;">
-                        يرجى إدخال بريد إلكتروني صحيح
-                    </div>
+<body>
+    <div class="auth-wrapper">
+        <div class="auth-container">
+            <div class="auth-card">
+                <div class="auth-header">
+                    <div class="auth-logo">م</div>
+                    <h1 class="auth-title">تسجيل الدخول</h1>
+                    <p class="auth-subtitle">مرحباً بك في نظام إدارة المختبر</p>
                 </div>
                 
-                <div class="form-group">
-                    <label for="password" class="form-label">كلمة المرور</label>
-                    <div class="password-wrapper">
-                        <input 
-                            type="password" 
-                            id="password"
-                            name="password" 
-                            class="form-control" 
-                            placeholder="أدخل كلمة المرور"
-                            autocomplete="current-password"
-                            required
-                        >
-                        <button type="button" class="password-toggle" id="togglePassword" aria-label="إظهار كلمة المرور">
-                            <i class="fas fa-eye"></i>
-                        </button>
-                    </div>
-                    <div class="invalid-feedback" style="display: none;">
-                        يرجى إدخال كلمة المرور
-                    </div>
+                <?php if ($error): ?>
+                <div class="alert alert-error">
+                    <svg class="alert-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <?= htmlspecialchars($error) ?>
                 </div>
+                <?php endif; ?>
                 
-                <div class="form-options">
-                    <div class="form-checkbox">
-                        <input type="checkbox" id="remember" name="remember" value="1">
-                        <label for="remember">تذكرني</label>
-                    </div>
-                    <a href="#" class="forgot-link">نسيت كلمة المرور؟</a>
+                <?php if ($success): ?>
+                <div class="alert alert-success">
+                    <svg class="alert-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <?= htmlspecialchars($success) ?>
                 </div>
+                <?php endif; ?>
                 
-                <button type="submit" class="btn-login" id="submitBtn" style="background: #27ae60; --primary-hover: #229954;">
-                    <span id="btnText">تسجيل الدخول</span>
-                    <span id="btnLoader" style="display: none;">
-                        <span class="spinner"></span> جاري التحميل...
-                    </span>
-                </button>
-            </form>
-            
-            <div class="divider">
-                <span class="divider-text">أو</span>
-            </div>
-            
-            <div class="login-footer">
-                <p>مشرف النظام؟ <a href="/admin/login">تسجيل دخول المشرفين</a></p>
+                <form method="post" autocomplete="off">
+                    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">
+                    
+                    <div class="form-group">
+                        <label for="username" class="form-label">اسم المستخدم أو البريد الإلكتروني</label>
+                        <div class="input-group">
+                            <svg class="input-icon" width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                            </svg>
+                            <input type="text" id="username" name="username" class="form-input" 
+                                   placeholder="أدخل اسم المستخدم أو البريد الإلكتروني" 
+                                   required autocomplete="username">
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="password" class="form-label">كلمة المرور</label>
+                        <div class="input-group">
+                            <svg class="input-icon" width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+                            </svg>
+                            <input type="password" id="password" name="password" class="form-input" 
+                                   placeholder="أدخل كلمة المرور" 
+                                   required autocomplete="current-password">
+                        </div>
+                    </div>
+                    
+                    <button type="submit" class="btn-submit">
+                        تسجيل الدخول
+                    </button>
+                </form>
+                
+                <div class="auth-links">
+                    <a href="../" class="auth-link">العودة للصفحة الرئيسية</a>
+                </div>
             </div>
         </div>
     </div>
-    
-    <script>
-        // Password visibility toggle
-        const togglePassword = document.getElementById('togglePassword');
-        const passwordInput = document.getElementById('password');
-        
-        togglePassword.addEventListener('click', function() {
-            const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
-            passwordInput.setAttribute('type', type);
-            this.querySelector('i').classList.toggle('fa-eye');
-            this.querySelector('i').classList.toggle('fa-eye-slash');
-        });
-        
-        // Form validation
-        const form = document.getElementById('loginForm');
-        const emailInput = document.getElementById('email');
-        const submitBtn = document.getElementById('submitBtn');
-        const btnText = document.getElementById('btnText');
-        const btnLoader = document.getElementById('btnLoader');
-        
-        // Email validation
-        emailInput.addEventListener('blur', function() {
-            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-            if (!emailRegex.test(this.value)) {
-                this.classList.add('is-invalid');
-                this.nextElementSibling.style.display = 'block';
-            } else {
-                this.classList.remove('is-invalid');
-                this.nextElementSibling.style.display = 'none';
-            }
-        });
-        
-        // Password validation
-        passwordInput.addEventListener('blur', function() {
-            if (this.value.length < 1) {
-                this.classList.add('is-invalid');
-                this.parentElement.nextElementSibling.style.display = 'block';
-            } else {
-                this.classList.remove('is-invalid');
-                this.parentElement.nextElementSibling.style.display = 'none';
-            }
-        });
-        
-        // Form submission
-        form.addEventListener('submit', function(e) {
-            e.preventDefault();
-            
-            // Validate all fields
-            let isValid = true;
-            
-            if (!emailInput.value || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailInput.value)) {
-                emailInput.classList.add('is-invalid');
-                emailInput.nextElementSibling.style.display = 'block';
-                isValid = false;
-            }
-            
-            if (!passwordInput.value) {
-                passwordInput.classList.add('is-invalid');
-                passwordInput.parentElement.nextElementSibling.style.display = 'block';
-                isValid = false;
-            }
-            
-            if (isValid) {
-                // Show loading state
-                submitBtn.disabled = true;
-                btnText.style.display = 'none';
-                btnLoader.style.display = 'inline-block';
-                
-                // Submit form
-                this.submit();
-            } else {
-                // Shake animation
-                form.classList.add('shake');
-                setTimeout(() => form.classList.remove('shake'), 500);
-            }
-        });
-        
-        // Remove invalid class on input
-        [emailInput, passwordInput].forEach(input => {
-            input.addEventListener('input', function() {
-                this.classList.remove('is-invalid');
-                if (this.id === 'password') {
-                    this.parentElement.nextElementSibling.style.display = 'none';
-                } else {
-                    this.nextElementSibling.style.display = 'none';
-                }
-            });
-        });
-    </script>
 </body>
 </html>

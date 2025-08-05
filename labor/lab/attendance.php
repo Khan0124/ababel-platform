@@ -1,6 +1,6 @@
 <?php
 session_start();
-include 'auth_employee.php';
+include '../includes/auth_employee.php';
 include '../includes/config.php';
 $employee_id = $_SESSION['employee_id'];
 $today = date('Y-m-d');
@@ -78,7 +78,7 @@ if (isset($_POST['check_out'])) {
     <div class="alert alert-success">✅ تم إنهاء الوردية بنجاح الساعة: <?= date('H:i', strtotime($attendance['check_out'])) ?></div>
   <?php endif; ?>
 
-  <a href="lab_dashboard.php" class="btn btn-secondary mt-3">↩️ العودة للوحة التحكم</a>
+  <a href="dashboard.php" class="btn btn-secondary mt-3">↩️ العودة للوحة التحكم</a>
 </div>
 </body>
 </html>

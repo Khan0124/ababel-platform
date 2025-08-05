@@ -1,6 +1,5 @@
 <?php
-session_start();
-include 'auth_employee.php';
+include 'auth_check.php';
 include '../includes/config.php';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {

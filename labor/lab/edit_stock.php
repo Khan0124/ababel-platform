@@ -1,6 +1,6 @@
 <?php
 session_start();
-include 'auth_employee.php';
+include '../includes/auth_employee.php';
 include '../includes/config.php';
 
 $lab_id = $_SESSION['lab_id'];

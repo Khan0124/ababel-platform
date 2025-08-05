@@ -9,5 +9,5 @@ if (isset($_GET['id'])) {
     $newStatus = ($lab['status'] == 'active') ? 'inactive' : 'active';
     $conn->query("UPDATE labs SET status = '$newStatus' WHERE id = $id");
 }
-header("Location: /admin/labs");
+header("Location: labs_list.php");
 exit;

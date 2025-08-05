@@ -1,31 +1,13 @@
 {
   "permissions": {
     "allow": [
-      "Bash(php:*)",
-      "Bash(find:*)",
-      "Bash(mkdir:*)",
-      "Bash(grep:*)",
-      "Bash(for file in attendance_list.php attendance.php delete_employee.php delete_exam.php delete_stock.php edit_employee.php edit_stock.php print_invoice.php save_exam.php stock_movement.php toggle_exam.php update_exam.php view_invoice.php)",
-      "Bash(do sed -i \"s|include ''../includes/auth_employee.php''|include ''auth_employee.php''|g\" \"$file\")",
-      "Bash(done)",
-      "Bash(do sed -i \"s|include ''../includes/auth_employee\\.php''|include ''auth_employee.php''|g\" \"$file\")",
-      "Bash(do sed -i 's#../includes/auth_employee.php#auth_employee.php#g' \"$file\")",
-      "Bash(mv:*)",
-      "Bash(composer check-platform-reqs:*)",
-      "Bash(rm:*)",
-      "Bash(sed:*)",
-      "Bash(cp:*)",
-      "Bash(curl:*)",
-      "Bash(cat:*)",
-      "Bash(systemctl status:*)",
+      "Bash(mysql:*)",
       "Bash(ls:*)",
-      "Bash(nginx:*)",
-      "Bash(systemctl reload:*)",
-      "Bash(/etc/init.d/nginx:*)",
-      "Bash(touch:*)",
-      "Bash(killall:*)",
-      "Bash(service nginx:*)",
-      "Bash(wget:*)"
+      "Bash(grep:*)",
+      "Bash(mv:*)",
+      "Bash(find:*)",
+      "Bash(php:*)",
+      "Bash(rm:*)"
     ],
     "deny": []
   }

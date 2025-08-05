@@ -36,15 +36,15 @@ class _BranchesScreenState extends State<BranchesScreen> {
       }
     } catch (e) {
       setState(() => isLoading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('خطأ في تحميل الفروع: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('خطأ في تحميل الفروع: $e')));
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final user = context.read<Session>().current!;
+    final user = context.read<Session>().current;
 
     return Scaffold(
       appBar: AppBar(title: const Text('اختيار الفرع')),
@@ -53,20 +53,22 @@ class _BranchesScreenState extends State<BranchesScreen> {
           : branches.isEmpty
           ? const Center(child: Text('لا توجد فروع متاحة'))
           : ListView.builder(
-        itemCount: branches.length,
-        itemBuilder: (_, i) {
-          final branch = branches[i];
-          return ListTile(
-            title: Text(branch.name),
-            subtitle: branch.address != null ? Text(branch.address!) : null,
-            onTap: () {
-              // تحديث فرع المستخدم
-              user.branchId = branch.id;
-              Navigator.pushReplacementNamed(context, '/pos');
-            },
-          );
-        },
-      ),
+              itemCount: branches.length,
+              itemBuilder: (_, i) {
+                final branch = branches[i];
+                return ListTile(
+                  title: Text(branch.name),
+                  subtitle: branch.address != null
+                      ? Text(branch.address!)
+                      : null,
+                  onTap: () {
+                    // تحديث فرع المستخدم
+                    user.branchId = branch.id;
+                    Navigator.pushReplacementNamed(context, '/pos');
+                  },
+                );
+              },
+            ),
     );
   }
 }

@@ -1,7 +1,5 @@
 <?php
-ini_set('display_errors', 1);
-error_reporting(E_ALL);
-include 'auth_employee.php';
+include 'auth_check.php';
 include '../includes/config.php';
 
 $lab_id = $_SESSION['lab_id'];
@@ -20,6 +18,7 @@ $stmt->bind_param("iiiiii", $lab_id, $lab_id, $lab_id, $lab_id, $lab_id, $lab_id
 $stmt->execute();
 $result = $stmt->get_result();
 $stats = $result->fetch_assoc();
+$stmt->close();
 
 $total_patients = $stats['total_patients'];
 $total_exams = $stats['total_exams'];
@@ -34,7 +33,8 @@ $stmt_lab->bind_param("i", $lab_id);
 $stmt_lab->execute();
 $lab_result = $stmt_lab->get_result();
 $lab = $lab_result->fetch_assoc();
-$lab_logo = !empty($lab['logo']) ? "../assets/" . $lab['logo'] : "../assets/default_logo.png";
+$stmt_lab->close();
+$lab_logo = !empty($lab['logo']) ? "../assets/" . htmlspecialchars($lab['logo']) : "../assets/default_logo.png";
 
 $current_page = basename($_SERVER['PHP_SELF']);
 ?>
@@ -246,21 +246,21 @@ $current_page = basename($_SERVER['PHP_SELF']);
   <h5><?= htmlspecialchars($lab['name']) ?></h5>
   <hr class="text-white" />
   <div class="sidebar-links">
-    <a href="/lab/dashboard" class="<?= $current_page == 'lab_dashboard.php' ? 'active' : '' ?>"><i class="bi bi-speedometer2"></i> لوحة التحكم</a>
-    <a href="/lab/patients" class="<?= $current_page == 'patients_list.php' ? 'active' : '' ?>"><i class="bi bi-person-vcard"></i> المرضى</a>
-    <a href="/lab/add_exam_for_patient" class="<?= $current_page == 'add_exam_for_patient.php' ? 'active' : '' ?>"><i class="bi bi-plus-circle"></i> إضافة فحص لمريض</a>
-    <a href="/lab/exam_list" class="<?= $current_page == 'exam_list.php' ? 'active' : '' ?>"><i class="bi bi-file-medical"></i> التحاليل</a>
-    <a href="/lab/exams" class="<?= $current_page == 'exams_list.php' ? 'active' : '' ?>"><i class="bi bi-clipboard-data"></i> الفحوصات</a>
-    <a href="/lab/results" class="<?= $current_page == 'results_list.php' ? 'active' : '' ?>"><i class="bi bi-journal-check"></i> النتائج</a>
-    <a href="/lab/cashbox" class="<?= $current_page == 'cashbox.php' ? 'active' : '' ?>"><i class="bi bi-cash-coin"></i> المعاملات</a>
-    <a href="/lab/stock" class="<?= $current_page == 'stock_list.php' ? 'active' : '' ?>"><i class="bi bi-box-seam"></i> المخزن</a>
-    <a href="/lab/insurance_companies" class="<?= $current_page == 'insurance_companies.php' ? 'active' : '' ?>"><i class="bi bi-shield-check"></i> شركات التأمين</a>
-    <a href="/lab/reports" class="<?= $current_page == 'reports.php' ? 'active' : '' ?>"><i class="bi bi-graph-up-arrow"></i> التقارير</a>
+    <a href="lab_dashboard.php" class="<?= $current_page == 'lab_dashboard.php' ? 'active' : '' ?>"><i class="bi bi-speedometer2"></i> لوحة التحكم</a>
+    <a href="patients_list.php" class="<?= $current_page == 'patients_list.php' ? 'active' : '' ?>"><i class="bi bi-person-vcard"></i> المرضى</a>
+    <a href="add_exam_for_patient.php" class="<?= $current_page == 'add_exam_for_patient.php' ? 'active' : '' ?>"><i class="bi bi-plus-circle"></i> إضافة فحص لمريض</a>
+    <a href="exam_list.php" class="<?= $current_page == 'exam_list.php' ? 'active' : '' ?>"><i class="bi bi-file-medical"></i> التحاليل</a>
+    <a href="exams_list.php" class="<?= $current_page == 'exams_list.php' ? 'active' : '' ?>"><i class="bi bi-clipboard-data"></i> الفحوصات</a>
+    <a href="results_list.php" class="<?= $current_page == 'results_list.php' ? 'active' : '' ?>"><i class="bi bi-journal-check"></i> النتائج</a>
+    <a href="cashbox.php" class="<?= $current_page == 'cashbox.php' ? 'active' : '' ?>"><i class="bi bi-cash-coin"></i> المعاملات</a>
+    <a href="stock_list.php" class="<?= $current_page == 'stock_list.php' ? 'active' : '' ?>"><i class="bi bi-box-seam"></i> المخزن</a>
+    <a href="insurance_companies.php" class="<?= $current_page == 'insurance_companies.php' ? 'active' : '' ?>"><i class="bi bi-shield-check"></i> شركات التأمين</a>
+    <a href="reports.php" class="<?= $current_page == 'reports.php' ? 'active' : '' ?>"><i class="bi bi-graph-up-arrow"></i> التقارير</a>
     <?php if ($_SESSION['employee_role'] === 'مدير'): ?>
-      <a href="/lab/employees" class="<?= $current_page == 'employees_list.php' ? 'active' : '' ?>"><i class="bi bi-people-fill"></i> الموظفون</a>
-      <a href="/lab/shifts" class="<?= $current_page == 'shift_list.php' ? 'active' : '' ?>"><i class="bi bi-calendar-range"></i> الشفتات</a>
+      <a href="employees_list.php" class="<?= $current_page == 'employees_list.php' ? 'active' : '' ?>"><i class="bi bi-people-fill"></i> الموظفون</a>
+      <a href="shift_list.php" class="<?= $current_page == 'shift_list.php' ? 'active' : '' ?>"><i class="bi bi-calendar-range"></i> الشفتات</a>
     <?php endif; ?>
-    <a href="/lab/logout" class="text-danger"><i class="bi bi-box-arrow-right"></i> تسجيل الخروج</a>
+    <a href="lab_logout.php" class="text-danger"><i class="bi bi-box-arrow-right"></i> تسجيل الخروج</a>
   </div>
 </div>
 
@@ -270,7 +270,7 @@ $current_page = basename($_SERVER['PHP_SELF']);
   <?php if ($unsubmitted_count > 0): ?>
     <div class="alert-unsubmitted">
       <i class="bi bi-exclamation-triangle-fill"></i>
-      <span>يوجد <a href="/lab/results?filter=pending" class="fw-bold text-decoration-none"><?= $unsubmitted_count ?> نتيجة فحص</a> لم تُسلم بعد</span>
+      <span>يوجد <a href="results_list.php?filter=pending" class="fw-bold text-decoration-none"><?= $unsubmitted_count ?> نتيجة فحص</a> لم تُسلم بعد</span>
     </div>
   <?php endif; ?>
 
@@ -281,7 +281,7 @@ $current_page = basename($_SERVER['PHP_SELF']);
 
   <div class="row g-4 row-cols-1 row-cols-sm-2 row-cols-md-3">
     <div class="col">
-      <div class="card-box" onclick="window.location.href='/lab/patients'" style="--card-color: #0d6efd;">
+      <div class="card-box" onclick="window.location.href='patients_list.php'" style="--card-color: #0d6efd;">
         <i class="bi bi-person-lines-fill text-primary"></i>
         <h6>عدد المرضى</h6>
         <h4><?= $total_patients ?></h4>
@@ -289,7 +289,7 @@ $current_page = basename($_SERVER['PHP_SELF']);
       </div>
     </div>
     <div class="col">
-      <div class="card-box" onclick="window.location.href='/lab/exam_list'" style="--card-color: #198754;">
+      <div class="card-box" onclick="window.location.href='exam_list.php'" style="--card-color: #198754;">
         <i class="bi bi-clipboard-pulse text-success"></i>
         <h6>عدد التحاليل</h6>
         <h4><?= $total_exams ?></h4>
@@ -297,7 +297,7 @@ $current_page = basename($_SERVER['PHP_SELF']);
       </div>
     </div>
     <div class="col">
-      <div class="card-box" onclick="window.location.href='/lab/results'" style="--card-color: #ffc107;">
+      <div class="card-box" onclick="window.location.href='results_list.php'" style="--card-color: #ffc107;">
         <i class="bi bi-journal-text text-warning"></i>
         <h6>عدد النتائج</h6>
         <h4><?= $total_results ?></h4>
@@ -305,7 +305,7 @@ $current_page = basename($_SERVER['PHP_SELF']);
       </div>
     </div>
     <div class="col">
-      <div class="card-box" onclick="window.location.href='/lab/employees'" style="--card-color: #0dcaf0;">
+      <div class="card-box" onclick="window.location.href='employees_list.php'" style="--card-color: #0dcaf0;">
         <i class="bi bi-person-badge text-info"></i>
         <h6>عدد الموظفين</h6>
         <h4><?= $total_employees ?></h4>
@@ -313,7 +313,7 @@ $current_page = basename($_SERVER['PHP_SELF']);
       </div>
     </div>
     <div class="col">
-      <div class="card-box" onclick="window.location.href='/lab/cashbox'" style="--card-color: #dc3545;">
+      <div class="card-box" onclick="window.location.href='cashbox.php'" style="--card-color: #dc3545;">
         <i class="bi bi-currency-exchange text-danger"></i>
         <h6>عدد المعاملات</h6>
         <h4><?= $total_transactions ?></h4>
@@ -352,7 +352,7 @@ setInterval(() => {
           newAlert.className = 'alert-unsubmitted';
           newAlert.innerHTML = `
             <i class="bi bi-exclamation-triangle-fill"></i>
-            <span>يوجد <a href="/lab/results?filter=pending" class="fw-bold text-decoration-none">${data.unsubmitted_count} نتيجة فحص</a> لم تُسلم بعد</span>
+            <span>يوجد <a href="results_list.php?filter=pending" class="fw-bold text-decoration-none">${data.unsubmitted_count} نتيجة فحص</a> لم تُسلم بعد</span>
           `;
           document.querySelector('.main-content').prepend(newAlert);
         }

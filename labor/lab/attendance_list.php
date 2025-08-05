@@ -1,6 +1,6 @@
 <?php
 session_start();
-include 'auth_employee.php';
+include '../includes/auth_employee.php';
 include '../includes/config.php';
 
 $lab_id = $_SESSION['lab_id'];
@@ -89,7 +89,7 @@ $result = $conn->query("
     </table>
   </div>
 
-  <a href="lab_dashboard.php" class="btn btn-secondary mt-3">↩️ العودة للوحة التحكم</a>
+  <a href="dashboard.php" class="btn btn-secondary mt-3">↩️ العودة للوحة التحكم</a>
 </div>
 </body>
 </html>

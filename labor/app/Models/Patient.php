@@ -1,111 +1,139 @@
 <?php
-
 namespace App\Models;
 
-use App\Core\Model;
-
-class Patient extends Model
-{
+class Patient extends BaseModel {
     protected $table = 'patients';
     protected $fillable = [
-        'lab_id', 'name', 'phone', 'email', 'national_id',
-        'date_of_birth', 'gender', 'address', 'blood_type',
-        'medical_history', 'notes', 'created_by'
+        'lab_id', 'name', 'phone', 'email', 'age', 'gender', 
+        'address', 'insurance_company', 'insurance_number', 'created_at', 'updated_at'
+    ];
+    protected $casts = [
+        'age' => 'int',
+        'lab_id' => 'int'
     ];
     
-    public function getLab()
-    {
-        return Lab::find($this->lab_id);
+    /**
+     * Get patients by lab
+     */
+    public function getPatientsByLab(int $labId, array $orderBy = ['name' => 'ASC']): array {
+        return $this->findAll(['lab_id' => $labId], $orderBy);
     }
     
-    public function getAge()
-    {
-        if (!$this->date_of_birth) {
-            return null;
-        }
-        $dob = new \DateTime($this->date_of_birth);
-        $now = new \DateTime();
-        return $dob->diff($now)->y;
-    }
-    
-    public function getExamResults($limit = null)
-    {
-        $sql = "SELECT er.*, e.name as exam_name, e.price, emp.name as performed_by_name 
-                FROM exam_results er
-                JOIN exams e ON er.exam_id = e.id
-                LEFT JOIN lab_employees emp ON er.performed_by = emp.id
-                WHERE er.patient_id = ?
-                ORDER BY er.created_at DESC";
+    /**
+     * Search patients by name or phone
+     */
+    public function searchPatients(int $labId, string $query): array {
+        $sql = "
+            SELECT * FROM {$this->table} 
+            WHERE lab_id = ? AND (name LIKE ? OR phone LIKE ? OR insurance_number LIKE ?)
+            ORDER BY name ASC
+        ";
         
-        if ($limit) {
-            $sql .= " LIMIT " . (int)$limit;
-        }
+        $searchTerm = "%{$query}%";
+        return $this->rawQuery($sql, [$labId, $searchTerm, $searchTerm, $searchTerm]);
+    }
+    
+    /**
+     * Get patient with exams
+     */
+    public function getPatientWithExams(int $patientId): ?array {
+        $sql = "
+            SELECT p.*, 
+                   COUNT(pe.id) as total_exams,
+                   COUNT(CASE WHEN pe.status = 'تم التسليم' THEN 1 END) as completed_exams,
+                   COUNT(CASE WHEN pe.status != 'تم التسليم' THEN 1 END) as pending_exams
+            FROM {$this->table} p
+            LEFT JOIN patient_exams pe ON p.id = pe.patient_id
+            WHERE p.id = ?
+            GROUP BY p.id
+        ";
         
-        $stmt = $this->db->prepare($sql);
-        $stmt->execute([$this->id]);
-        return $stmt->fetchAll();
+        return $this->rawQuerySingle($sql, [$patientId]);
     }
     
-    public function getPendingExams()
-    {
-        $stmt = $this->db->prepare("
-            SELECT pe.*, e.name as exam_name, e.normal_range, e.unit
-            FROM patient_exams pe
-            JOIN exams e ON pe.exam_id = e.id
-            WHERE pe.patient_id = ? AND pe.status = 'pending'
-            ORDER BY pe.created_at DESC
-        ");
-        $stmt->execute([$this->id]);
-        return $stmt->fetchAll();
+    /**
+     * Get patients with pending exams
+     */
+    public function getPatientsWithPendingExams(int $labId): array {
+        $sql = "
+            SELECT DISTINCT p.*, COUNT(pe.id) as pending_count
+            FROM {$this->table} p
+            INNER JOIN patient_exams pe ON p.id = pe.patient_id
+            WHERE p.lab_id = ? AND pe.status != 'تم التسليم'
+            GROUP BY p.id
+            ORDER BY pending_count DESC, p.name ASC
+        ";
+        
+        return $this->rawQuery($sql, [$labId]);
     }
     
-    public function getTotalSpent()
-    {
-        $stmt = $this->db->prepare("
-            SELECT SUM(total_amount) as total
-            FROM invoices
-            WHERE patient_id = ? AND status = 'paid'
-        ");
-        $stmt->execute([$this->id]);
-        return $stmt->fetch()['total'] ?? 0;
+    /**
+     * Get patient statistics
+     */
+    public function getPatientStats(int $labId): array {
+        $sql = "
+            SELECT 
+                COUNT(*) as total_patients,
+                COUNT(CASE WHEN gender = 'ذكر' THEN 1 END) as male_count,
+                COUNT(CASE WHEN gender = 'أنثى' THEN 1 END) as female_count,
+                AVG(age) as avg_age,
+                COUNT(CASE WHEN insurance_company IS NOT NULL AND insurance_company != '' THEN 1 END) as insured_count
+            FROM {$this->table}
+            WHERE lab_id = ?
+        ";
+        
+        $result = $this->rawQuerySingle($sql, [$labId]);
+        return $result ?: [];
     }
     
-    public function getLastVisit()
-    {
-        $stmt = $this->db->prepare("
-            SELECT MAX(created_at) as last_visit
-            FROM exam_results
-            WHERE patient_id = ?
-        ");
-        $stmt->execute([$this->id]);
-        return $stmt->fetch()['last_visit'];
+    /**
+     * Get patients by age group
+     */
+    public function getPatientsByAgeGroup(int $labId): array {
+        $sql = "
+            SELECT 
+                CASE 
+                    WHEN age < 18 THEN 'أطفال'
+                    WHEN age BETWEEN 18 AND 30 THEN 'شباب'
+                    WHEN age BETWEEN 31 AND 50 THEN 'وسط'
+                    WHEN age BETWEEN 51 AND 65 THEN 'كبار'
+                    ELSE 'مسنين'
+                END as age_group,
+                COUNT(*) as count
+            FROM {$this->table}
+            WHERE lab_id = ?
+            GROUP BY age_group
+            ORDER BY count DESC
+        ";
+        
+        return $this->rawQuery($sql, [$labId]);
     }
     
-    public function getVisitCount()
-    {
-        $stmt = $this->db->prepare("
-            SELECT COUNT(DISTINCT DATE(created_at)) as visits
-            FROM exam_results
-            WHERE patient_id = ?
-        ");
-        $stmt->execute([$this->id]);
-        return $stmt->fetch()['visits'] ?? 0;
+    /**
+     * Get patients by insurance company
+     */
+    public function getPatientsByInsurance(int $labId): array {
+        $sql = "
+            SELECT 
+                insurance_company,
+                COUNT(*) as count
+            FROM {$this->table}
+            WHERE lab_id = ? AND insurance_company IS NOT NULL AND insurance_company != ''
+            GROUP BY insurance_company
+            ORDER BY count DESC
+        ";
+        
+        return $this->rawQuery($sql, [$labId]);
     }
     
-    public function addMedicalHistory($entry)
-    {
-        $history = json_decode($this->medical_history, true) ?? [];
-        $history[] = [
-            'date' => date('Y-m-d'),
-            'entry' => $entry,
-            'added_by' => $_SESSION['employee_id'] ?? $_SESSION['admin_id'] ?? null
-        ];
-        $this->medical_history = json_encode($history);
-        return $this->save();
+    /**
+     * Get recent patients
+     */
+    public function getRecentPatients(int $labId, int $limit = 10): array {
+        return $this->findAll(
+            ['lab_id' => $labId], 
+            ['created_at' => 'DESC'], 
+            $limit
+        );
     }
-    
-    public function getMedicalHistoryArray()
-    {
-        return json_decode($this->medical_history, true) ?? [];
-    }
-}
+} 

@@ -1,7 +1,7 @@
 // apps/customer_app/lib/screens/order/order_tracking_screen.dart
 class OrderTrackingScreen extends ConsumerStatefulWidget {
   final int orderId;
-  
+
   @override
   _OrderTrackingScreenState createState() => _OrderTrackingScreenState();
 }
@@ -9,39 +9,41 @@ class OrderTrackingScreen extends ConsumerStatefulWidget {
 class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
   StreamSubscription? _orderSubscription;
   StreamSubscription? _driverLocationSubscription;
-  
+
   @override
   void initState() {
     super.initState();
     _subscribeToOrderUpdates();
   }
-  
+
   void _subscribeToOrderUpdates() {
-    _orderSubscription = ref.read(realtimeServiceProvider)
+    _orderSubscription = ref
+        .read(realtimeServiceProvider)
         .subscribeToOrder(widget.orderId)
         .listen((update) {
-      ref.read(orderProvider(widget.orderId).notifier).updateOrder(update);
-      
-      if (update.driverId != null) {
-        _subscribeToDriverLocation(update.driverId!);
-      }
-    });
+          ref.read(orderProvider(widget.orderId).notifier).updateOrder(update);
+
+          if (update.driverId != null) {
+            _subscribeToDriverLocation(update.driverId!);
+          }
+        });
   }
-  
+
   void _subscribeToDriverLocation(int driverId) {
     _driverLocationSubscription?.cancel();
-    _driverLocationSubscription = ref.read(realtimeServiceProvider)
+    _driverLocationSubscription = ref
+        .read(realtimeServiceProvider)
         .subscribeToDriverLocation(driverId)
         .listen((location) {
-      ref.read(driverLocationProvider.notifier).updateLocation(location);
-    });
+          ref.read(driverLocationProvider.notifier).updateLocation(location);
+        });
   }
-  
+
   @override
   Widget build(BuildContext context) {
     final order = ref.watch(orderProvider(widget.orderId));
     final driverLocation = ref.watch(driverLocationProvider);
-    
+
     return order.when(
       data: (order) => Scaffold(
         appBar: AppBar(
@@ -49,7 +51,7 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
           actions: [
             IconButton(
               icon: const Icon(Icons.help),
-              onPressed: () => _showSupportDialog(),
+              onPressed: _showSupportDialog,
             ),
           ],
         ),
@@ -60,7 +62,7 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
               currentStatus: order.status,
               statusHistory: order.statusHistory,
             ),
-            
+
             // Map (for delivery orders)
             if (order.type == OrderType.delivery)
               Expanded(
@@ -69,10 +71,10 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
                   driverLocation: driverLocation,
                 ),
               ),
-            
+
             // Order Details
             OrderDetailsCard(order: order),
-            
+
             // Driver Info (if assigned)
             if (order.driver != null)
               DriverInfoCard(
@@ -87,7 +89,7 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
       error: (error, stack) => ErrorScreen(error: error),
     );
   }
-  
+
   @override
   void dispose() {
     _orderSubscription?.cancel();

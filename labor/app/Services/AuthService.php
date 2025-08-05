@@ -1,251 +1,236 @@
 <?php
-
 namespace App\Services;
 
-use App\Models\Admin;
-use App\Models\Employee;
+use App\Core\Security;
 use App\Models\Lab;
+use App\Models\LabEmployee;
+use PDO;
+use Exception;
 
-class AuthService
-{
-    private $sessionPrefix = 'auth_';
-    private $maxAttempts = 5;
-    private $lockoutMinutes = 15;
+class AuthService {
+    private $db;
+    private $security;
+    private $labModel;
+    private $employeeModel;
     
-    public function __construct()
-    {
-        $this->maxAttempts = $_ENV['LOGIN_MAX_ATTEMPTS'] ?? 5;
-        $this->lockoutMinutes = $_ENV['LOGIN_LOCKOUT_MINUTES'] ?? 15;
+    public function __construct(PDO $database) {
+        $this->db = $database;
+        $this->security = new Security($database);
+        $this->labModel = new Lab($database);
+        $this->employeeModel = new LabEmployee($database);
     }
     
-    public function attemptAdminLogin($email, $password, $remember = false)
-    {
-        // Check rate limiting
-        if ($this->isLockedOut('admin', $email)) {
-            return [
-                'success' => false,
-                'message' => $this->getRateLimitMessage('admin', $email)
-            ];
+    /**
+     * Authenticate lab login
+     */
+    public function authenticateLab(string $email, string $password): array {
+        $ip = $this->security->getClientIP();
+        
+        // Check for brute force attacks
+        if ($this->security->checkBruteForce($ip)) {
+            $this->security->logSecurityEvent('brute_force_blocked', 'Too many failed login attempts', $ip);
+            throw new Exception('تم حظر هذا العنوان IP مؤقتاً بسبب محاولات تسجيل دخول متكررة. يرجى المحاولة لاحقاً.');
         }
         
-        $result = Admin::authenticate($email, $password);
-        
-        if ($result['success']) {
-            $this->clearLoginAttempts('admin', $email);
-            $this->createAdminSession($result['admin'], $remember);
-            $result['admin']->logActivity('login', 'تسجيل دخول ناجح');
-        } else {
-            $this->incrementLoginAttempts('admin', $email);
+        // Find lab by email
+        $lab = $this->labModel->findBy('email', $email);
+        if (!$lab) {
+            $this->security->logSecurityEvent('failed_login', "Failed login attempt for email: {$email}", $ip);
+            throw new Exception('بيانات تسجيل الدخول غير صحيحة');
         }
         
-        return $result;
-    }
-    
-    public function attemptEmployeeLogin($email, $password, $remember = false)
-    {
-        // Check rate limiting
-        if ($this->isLockedOut('employee', $email)) {
-            return [
-                'success' => false,
-                'message' => $this->getRateLimitMessage('employee', $email)
-            ];
+        // Check if lab is active
+        if (!$lab['status']) {
+            $this->security->logSecurityEvent('inactive_lab_login', "Login attempt for inactive lab: {$email}", $ip);
+            throw new Exception('هذا المعمل غير مفعل حالياً');
         }
         
-        $result = Employee::authenticate($email, $password);
-        
-        if ($result['success']) {
-            $this->clearLoginAttempts('employee', $email);
-            $this->createEmployeeSession($result['employee'], $remember);
-            $result['employee']->logActivity('login', 'تسجيل دخول ناجح');
-        } else {
-            $this->incrementLoginAttempts('employee', $email);
+        // Verify password
+        if (!$this->security->verifyPassword($password, $lab['password'])) {
+            $this->security->logSecurityEvent('failed_login', "Failed login attempt for lab: {$email}", $ip);
+            throw new Exception('بيانات تسجيل الدخول غير صحيحة');
         }
         
-        return $result;
+        // Create session
+        $sessionToken = $this->security->generateSecureToken();
+        $this->createLabSession($lab['id'], $sessionToken);
+        
+        // Log successful login
+        $this->security->logSecurityEvent('successful_login', "Successful lab login: {$email}", $ip);
+        
+        return [
+            'lab_id' => $lab['id'],
+            'lab_name' => $lab['name'],
+            'session_token' => $sessionToken,
+            'subscription_type' => $lab['subscription_type'],
+            'subscription_end_date' => $lab['subscription_end_date']
+        ];
     }
     
-    private function createAdminSession($admin, $remember = false)
-    {
-        $_SESSION['admin_id'] = $admin->id;
-        $_SESSION['admin_name'] = $admin->name;
-        $_SESSION['admin_email'] = $admin->email;
-        $_SESSION['admin_role'] = $admin->role;
-        $_SESSION['auth_type'] = 'admin';
-        $_SESSION['auth_time'] = time();
+    /**
+     * Authenticate employee login
+     */
+    public function authenticateEmployee(int $labId, string $username, string $password): array {
+        $ip = $this->security->getClientIP();
         
-        if ($remember) {
-            $this->createRememberToken('admin', $admin->id);
+        // Check for brute force attacks
+        if ($this->security->checkBruteForce($ip)) {
+            $this->security->logSecurityEvent('brute_force_blocked', 'Too many failed login attempts', $ip);
+            throw new Exception('تم حظر هذا العنوان IP مؤقتاً بسبب محاولات تسجيل دخول متكررة. يرجى المحاولة لاحقاً.');
         }
         
-        $this->regenerateSession();
-    }
-    
-    private function createEmployeeSession($employee, $remember = false)
-    {
-        $_SESSION['employee_id'] = $employee->id;
-        $_SESSION['employee_name'] = $employee->name;
-        $_SESSION['employee_email'] = $employee->email;
-        $_SESSION['employee_role'] = $employee->role;
-        $_SESSION['lab_id'] = $employee->lab_id;
-        $_SESSION['auth_type'] = 'employee';
-        $_SESSION['auth_time'] = time();
-        
-        if ($remember) {
-            $this->createRememberToken('employee', $employee->id);
+        // Find employee by username and lab_id
+        $employee = $this->employeeModel->findByUsernameAndLab($username, $labId);
+        if (!$employee) {
+            $this->security->logSecurityEvent('failed_login', "Failed employee login attempt: {$username}", $ip);
+            throw new Exception('بيانات تسجيل الدخول غير صحيحة');
         }
         
-        $this->regenerateSession();
+        // Check if employee is active
+        if (!$employee['status']) {
+            $this->security->logSecurityEvent('inactive_employee_login', "Login attempt for inactive employee: {$username}", $ip);
+            throw new Exception('هذا الموظف غير مفعل حالياً');
+        }
+        
+        // Verify password
+        if (!$this->security->verifyPassword($password, $employee['password'])) {
+            $this->security->logSecurityEvent('failed_login', "Failed employee login attempt: {$username}", $ip);
+            throw new Exception('بيانات تسجيل الدخول غير صحيحة');
+        }
+        
+        // Create session
+        $sessionToken = $this->security->generateSecureToken();
+        $this->createEmployeeSession($employee['id'], $sessionToken);
+        
+        // Log successful login
+        $this->security->logSecurityEvent('successful_login', "Successful employee login: {$username}", $ip);
+        
+        return [
+            'employee_id' => $employee['id'],
+            'employee_name' => $employee['name'],
+            'lab_id' => $employee['lab_id'],
+            'role' => $employee['role'],
+            'session_token' => $sessionToken
+        ];
     }
     
-    private function regenerateSession()
-    {
-        session_regenerate_id(true);
-        $_SESSION['fingerprint'] = $this->generateFingerprint();
-    }
-    
-    private function generateFingerprint()
-    {
-        return hash('sha256', 
-            $_SERVER['HTTP_USER_AGENT'] . 
-            $_SERVER['REMOTE_ADDR'] . 
-            $_ENV['APP_KEY']
-        );
-    }
-    
-    public function validateSession()
-    {
-        // Check session fingerprint
-        if (!isset($_SESSION['fingerprint']) || 
-            $_SESSION['fingerprint'] !== $this->generateFingerprint()) {
+    /**
+     * Validate session
+     */
+    public function validateSession(int $userId, string $sessionToken, string $userType = 'lab'): bool {
+        $table = $userType === 'lab' ? 'lab_sessions' : 'employee_sessions';
+        
+        $sql = "
+            SELECT id, last_activity 
+            FROM {$table} 
+            WHERE user_id = ? AND session_token = ? AND expires_at > NOW()
+        ";
+        
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute([$userId, $sessionToken]);
+        $session = $stmt->fetch();
+        
+        if (!$session) {
             return false;
         }
         
-        // Check session timeout
-        $lifetime = ($_ENV['SESSION_LIFETIME'] ?? 120) * 60;
-        if (isset($_SESSION['auth_time']) && 
-            (time() - $_SESSION['auth_time']) > $lifetime) {
-            return false;
-        }
+        // Update last activity
+        $stmt = $this->db->prepare("
+            UPDATE {$table} 
+            SET last_activity = NOW() 
+            WHERE id = ?
+        ");
+        $stmt->execute([$session['id']]);
         
         return true;
     }
     
-    public function checkAdmin()
-    {
-        return isset($_SESSION['auth_type']) && 
-               $_SESSION['auth_type'] === 'admin' &&
-               isset($_SESSION['admin_id']) &&
-               $this->validateSession();
-    }
-    
-    public function checkEmployee()
-    {
-        return isset($_SESSION['auth_type']) && 
-               $_SESSION['auth_type'] === 'employee' &&
-               isset($_SESSION['employee_id']) &&
-               $this->validateSession();
-    }
-    
-    public function getCurrentAdmin()
-    {
-        if ($this->checkAdmin()) {
-            return Admin::find($_SESSION['admin_id']);
-        }
-        return null;
-    }
-    
-    public function getCurrentEmployee()
-    {
-        if ($this->checkEmployee()) {
-            return Employee::find($_SESSION['employee_id']);
-        }
-        return null;
-    }
-    
-    public function logout()
-    {
-        // Clear remember token if exists
-        if (isset($_COOKIE['remember_token'])) {
-            setcookie('remember_token', '', time() - 3600, '/');
-        }
+    /**
+     * Logout user
+     */
+    public function logout(int $userId, string $sessionToken, string $userType = 'lab'): void {
+        $table = $userType === 'lab' ? 'lab_sessions' : 'employee_sessions';
         
-        // Log the logout activity
-        if ($this->checkAdmin()) {
-            $admin = $this->getCurrentAdmin();
-            $admin->logActivity('logout', 'تسجيل خروج');
-        } elseif ($this->checkEmployee()) {
-            $employee = $this->getCurrentEmployee();
-            $employee->logActivity('logout', 'تسجيل خروج');
-        }
+        $stmt = $this->db->prepare("
+            DELETE FROM {$table} 
+            WHERE user_id = ? AND session_token = ?
+        ");
+        $stmt->execute([$userId, $sessionToken]);
         
-        // Destroy session
-        session_unset();
-        session_destroy();
-        
-        // Start new session for flash messages
-        session_start();
+        $this->security->logSecurityEvent('logout', "User logged out: {$userId}", $this->security->getClientIP());
     }
     
-    private function isLockedOut($type, $email)
-    {
-        $key = $this->getAttemptsKey($type, $email);
-        $attempts = $_SESSION[$key]['attempts'] ?? 0;
-        $lastAttempt = $_SESSION[$key]['last_attempt'] ?? 0;
+    /**
+     * Create lab session
+     */
+    private function createLabSession(int $labId, string $sessionToken): void {
+        $expiresAt = date('Y-m-d H:i:s', strtotime('+2 hours'));
         
-        if ($attempts >= $this->maxAttempts) {
-            $lockoutTime = $this->lockoutMinutes * 60;
-            if ((time() - $lastAttempt) < $lockoutTime) {
-                return true;
-            } else {
-                // Reset attempts after lockout period
-                unset($_SESSION[$key]);
-            }
+        $stmt = $this->db->prepare("
+            INSERT INTO lab_sessions (lab_id, session_token, expires_at, created_at) 
+            VALUES (?, ?, ?, NOW())
+        ");
+        $stmt->execute([$labId, $sessionToken, $expiresAt]);
+    }
+    
+    /**
+     * Create employee session
+     */
+    private function createEmployeeSession(int $employeeId, string $sessionToken): void {
+        $expiresAt = date('Y-m-d H:i:s', strtotime('+8 hours'));
+        
+        $stmt = $this->db->prepare("
+            INSERT INTO employee_sessions (employee_id, session_token, expires_at, created_at) 
+            VALUES (?, ?, ?, NOW())
+        ");
+        $stmt->execute([$employeeId, $sessionToken, $expiresAt]);
+    }
+    
+    /**
+     * Change password
+     */
+    public function changePassword(int $userId, string $currentPassword, string $newPassword, string $userType = 'lab'): bool {
+        $table = $userType === 'lab' ? 'labs' : 'lab_employees';
+        
+        // Get current user
+        $stmt = $this->db->prepare("SELECT password FROM {$table} WHERE id = ?");
+        $stmt->execute([$userId]);
+        $user = $stmt->fetch();
+        
+        if (!$user) {
+            throw new Exception('المستخدم غير موجود');
         }
         
-        return false;
-    }
-    
-    private function incrementLoginAttempts($type, $email)
-    {
-        $key = $this->getAttemptsKey($type, $email);
-        
-        if (!isset($_SESSION[$key])) {
-            $_SESSION[$key] = ['attempts' => 0, 'last_attempt' => 0];
+        // Verify current password
+        if (!$this->security->verifyPassword($currentPassword, $user['password'])) {
+            throw new Exception('كلمة المرور الحالية غير صحيحة');
         }
         
-        $_SESSION[$key]['attempts']++;
-        $_SESSION[$key]['last_attempt'] = time();
-    }
-    
-    private function clearLoginAttempts($type, $email)
-    {
-        $key = $this->getAttemptsKey($type, $email);
-        unset($_SESSION[$key]);
-    }
-    
-    private function getAttemptsKey($type, $email)
-    {
-        return 'login_attempts_' . $type . '_' . md5($email);
-    }
-    
-    private function getRateLimitMessage($type, $email)
-    {
-        $key = $this->getAttemptsKey($type, $email);
-        $lastAttempt = $_SESSION[$key]['last_attempt'] ?? 0;
-        $remainingTime = ($this->lockoutMinutes * 60) - (time() - $lastAttempt);
-        $minutes = ceil($remainingTime / 60);
+        // Validate new password strength
+        $errors = $this->security->validatePasswordStrength($newPassword);
+        if (!empty($errors)) {
+            throw new Exception(implode(', ', $errors));
+        }
         
-        return "تم تجاوز عدد المحاولات المسموح. يرجى المحاولة بعد {$minutes} دقيقة";
+        // Hash new password
+        $hashedPassword = $this->security->hashPassword($newPassword);
+        
+        // Update password
+        $stmt = $this->db->prepare("UPDATE {$table} SET password = ? WHERE id = ?");
+        $result = $stmt->execute([$hashedPassword, $userId]);
+        
+        if ($result) {
+            $this->security->logSecurityEvent('password_changed', "Password changed for user: {$userId}", $this->security->getClientIP());
+        }
+        
+        return $result;
     }
     
-    private function createRememberToken($type, $userId)
-    {
-        $token = bin2hex(random_bytes(32));
-        $expires = time() + (30 * 24 * 60 * 60); // 30 days
-        
-        // Store token in database (you'll need a remember_tokens table)
-        // For now, we'll use a simple cookie
-        $value = $type . '|' . $userId . '|' . $token;
-        setcookie('remember_token', $value, $expires, '/', '', true, true);
+    /**
+     * Clean up expired sessions
+     */
+    public function cleanupExpiredSessions(): void {
+        $this->db->exec("DELETE FROM lab_sessions WHERE expires_at < NOW()");
+        $this->db->exec("DELETE FROM employee_sessions WHERE expires_at < NOW()");
     }
-}
+} 
