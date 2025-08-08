@@ -1,0 +1,2 @@
+# Quick one-liner fix
+Write-Host "Fixing NOKTA POS..." -ForegroundColor Green; Remove-Item -Path ".dart_tool", "build", "*.lock" -Recurse -Force -ErrorAction SilentlyContinue; flutter clean; flutter pub get; dart pub global activate melos; melos bootstrap; Set-Location "packages\core"; dart run build_runner build --delete-conflicting-outputs; Set-Location "..\.."; flutter analyze; Write-Host "DONE! Check results above." -ForegroundColor Green

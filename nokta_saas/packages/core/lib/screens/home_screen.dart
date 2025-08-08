@@ -58,7 +58,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 title: Text(product.name),
                 subtitle: Text(
                   // لو عندك description في الـ Product، خليها هنا
-                  product.description != null && product.description!.isNotEmpty
+                  product.description.isNotEmpty
                       ? '${product.description} - ${product.price} \$'
                       : '${product.price} \$',
                 ),

@@ -8,26 +8,20 @@ class Branch with _$Branch {
   const factory Branch({
     required int id,
     required int tenantId,
-    required int restaurantId,
     required String name,
-    String? description,
-    required String address,
+    String? code,
+    String? address,
     String? phone,
     String? email,
     double? latitude,
     double? longitude,
-    required bool isActive,
-    required bool isDeliveryEnabled,
-    required bool isTakeawayEnabled,
-    required bool isDineInEnabled,
-    int? maxTables,
-    List<String>? workingHours,
-    List<String>? deliveryAreas,
-    double? deliveryRadius,
-    double? minimumOrderAmount,
-    double? deliveryFee,
-    required DateTime createdAt,
-    required DateTime updatedAt,
+    String? openingTime,
+    String? closingTime,
+    @Default(false) bool isMain,
+    @Default(true) bool isActive,
+    Map<String, dynamic>? settings,
+    DateTime? createdAt,
+    DateTime? updatedAt,
   }) = _Branch;
 
   factory Branch.fromJson(Map<String, dynamic> json) => _$BranchFromJson(json);
@@ -36,36 +30,28 @@ class Branch with _$Branch {
     return Branch(
       id: map['id'] as int,
       tenantId: map['tenant_id'] as int,
-      restaurantId: map['restaurant_id'] as int,
       name: map['name'] as String,
-      description: map['description'] as String?,
-      address: map['address'] as String,
+      code: map['code'] as String?,
+      address: map['address'] as String?,
       phone: map['phone'] as String?,
       email: map['email'] as String?,
-      latitude: map['latitude'] != null ? (map['latitude'] as num).toDouble() : null,
-      longitude: map['longitude'] != null ? (map['longitude'] as num).toDouble() : null,
+      latitude: map['latitude'] != null 
+          ? (map['latitude'] as num).toDouble()
+          : null,
+      longitude: map['longitude'] != null 
+          ? (map['longitude'] as num).toDouble()
+          : null,
+      openingTime: map['opening_time'] as String?,
+      closingTime: map['closing_time'] as String?,
+      isMain: (map['is_main'] as int? ?? 0) == 1,
       isActive: (map['is_active'] as int? ?? 1) == 1,
-      isDeliveryEnabled: (map['is_delivery_enabled'] as int? ?? 0) == 1,
-      isTakeawayEnabled: (map['is_takeaway_enabled'] as int? ?? 1) == 1,
-      isDineInEnabled: (map['is_dine_in_enabled'] as int? ?? 1) == 1,
-      maxTables: map['max_tables'] as int?,
-      workingHours: map['working_hours'] != null 
-          ? (map['working_hours'] as String).split(',')
+      settings: map['settings'] as Map<String, dynamic>?,
+      createdAt: map['created_at'] != null 
+          ? DateTime.parse(map['created_at'] as String)
           : null,
-      deliveryAreas: map['delivery_areas'] != null 
-          ? (map['delivery_areas'] as String).split(',')
+      updatedAt: map['updated_at'] != null 
+          ? DateTime.parse(map['updated_at'] as String)
           : null,
-      deliveryRadius: map['delivery_radius'] != null 
-          ? (map['delivery_radius'] as num).toDouble()
-          : null,
-      minimumOrderAmount: map['minimum_order_amount'] != null 
-          ? (map['minimum_order_amount'] as num).toDouble()
-          : null,
-      deliveryFee: map['delivery_fee'] != null 
-          ? (map['delivery_fee'] as num).toDouble()
-          : null,
-      createdAt: DateTime.parse(map['created_at'] as String),
-      updatedAt: DateTime.parse(map['updated_at'] as String),
     );
   }
 
@@ -73,26 +59,20 @@ class Branch with _$Branch {
     return {
       'id': id,
       'tenant_id': tenantId,
-      'restaurant_id': restaurantId,
       'name': name,
-      'description': description,
+      'code': code,
       'address': address,
       'phone': phone,
       'email': email,
       'latitude': latitude,
       'longitude': longitude,
+      'opening_time': openingTime,
+      'closing_time': closingTime,
+      'is_main': isMain ? 1 : 0,
       'is_active': isActive ? 1 : 0,
-      'is_delivery_enabled': isDeliveryEnabled ? 1 : 0,
-      'is_takeaway_enabled': isTakeawayEnabled ? 1 : 0,
-      'is_dine_in_enabled': isDineInEnabled ? 1 : 0,
-      'max_tables': maxTables,
-      'working_hours': workingHours?.join(','),
-      'delivery_areas': deliveryAreas?.join(','),
-      'delivery_radius': deliveryRadius,
-      'minimum_order_amount': minimumOrderAmount,
-      'delivery_fee': deliveryFee,
-      'created_at': createdAt.toIso8601String(),
-      'updated_at': updatedAt.toIso8601String(),
+      'settings': settings,
+      'created_at': createdAt?.toIso8601String(),
+      'updated_at': updatedAt?.toIso8601String(),
     };
   }
 }

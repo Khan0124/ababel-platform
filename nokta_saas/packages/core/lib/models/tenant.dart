@@ -6,12 +6,8 @@ part 'tenant.g.dart';
 enum TenantStatus {
   @JsonValue('active')
   active,
-  @JsonValue('trial')
-  trial,
   @JsonValue('suspended')
   suspended,
-  @JsonValue('expired')
-  expired,
   @JsonValue('cancelled')
   cancelled,
 }
@@ -32,26 +28,17 @@ class Tenant with _$Tenant {
   const factory Tenant({
     required int id,
     required String name,
-    required String subdomain,
-    required SubscriptionPlan plan,
-    required TenantStatus status,
-    String? description,
-    String? logoUrl,
-    String? primaryColor,
-    String? secondaryColor,
-    required DateTime createdAt,
-    required DateTime updatedAt,
-    DateTime? trialEndsAt,
-    DateTime? subscriptionEndsAt,
-    int? maxUsers,
-    int? maxBranches,
-    int? maxProducts,
-    bool? hasMultiLocation,
-    bool? hasDelivery,
-    bool? hasOnlineOrdering,
-    bool? hasAnalytics,
-    bool? hasInventoryManagement,
+    String? domain,
+    String? logo,
+    String? phone,
+    String? email,
+    String? address,
+    @Default(TenantStatus.active) TenantStatus status,
+    @Default(SubscriptionPlan.basic) SubscriptionPlan subscriptionPlan,
+    DateTime? subscriptionExpires,
     Map<String, dynamic>? settings,
+    DateTime? createdAt,
+    DateTime? updatedAt,
   }) = _Tenant;
 
   factory Tenant.fromJson(Map<String, dynamic> json) => _$TenantFromJson(json);
@@ -60,47 +47,28 @@ class Tenant with _$Tenant {
     return Tenant(
       id: map['id'] as int,
       name: map['name'] as String,
-      subdomain: map['subdomain'] as String,
-      plan: SubscriptionPlan.values.firstWhere(
-        (e) => e.name == map['plan'],
-        orElse: () => SubscriptionPlan.basic,
-      ),
+      domain: map['domain'] as String?,
+      logo: map['logo'] as String?,
+      phone: map['phone'] as String?,
+      email: map['email'] as String?,
+      address: map['address'] as String?,
       status: TenantStatus.values.firstWhere(
         (e) => e.name == map['status'],
-        orElse: () => TenantStatus.trial,
+        orElse: () => TenantStatus.active,
       ),
-      description: map['description'] as String?,
-      logoUrl: map['logo_url'] as String?,
-      primaryColor: map['primary_color'] as String?,
-      secondaryColor: map['secondary_color'] as String?,
-      createdAt: DateTime.parse(map['created_at'] as String),
-      updatedAt: DateTime.parse(map['updated_at'] as String),
-      trialEndsAt: map['trial_ends_at'] != null 
-          ? DateTime.parse(map['trial_ends_at'] as String)
+      subscriptionPlan: SubscriptionPlan.values.firstWhere(
+        (e) => e.name == map['subscription_plan'],
+        orElse: () => SubscriptionPlan.basic,
+      ),
+      subscriptionExpires: map['subscription_expires'] != null 
+          ? DateTime.parse(map['subscription_expires'] as String)
           : null,
-      subscriptionEndsAt: map['subscription_ends_at'] != null 
-          ? DateTime.parse(map['subscription_ends_at'] as String)
+      settings: map['settings'] as Map<String, dynamic>?,
+      createdAt: map['created_at'] != null 
+          ? DateTime.parse(map['created_at'] as String)
           : null,
-      maxUsers: map['max_users'] as int?,
-      maxBranches: map['max_branches'] as int?,
-      maxProducts: map['max_products'] as int?,
-      hasMultiLocation: map['has_multi_location'] != null 
-          ? (map['has_multi_location'] as int) == 1
-          : null,
-      hasDelivery: map['has_delivery'] != null 
-          ? (map['has_delivery'] as int) == 1
-          : null,
-      hasOnlineOrdering: map['has_online_ordering'] != null 
-          ? (map['has_online_ordering'] as int) == 1
-          : null,
-      hasAnalytics: map['has_analytics'] != null 
-          ? (map['has_analytics'] as int) == 1
-          : null,
-      hasInventoryManagement: map['has_inventory_management'] != null 
-          ? (map['has_inventory_management'] as int) == 1
-          : null,
-      settings: map['settings'] != null 
-          ? Map<String, dynamic>.from(map['settings'])
+      updatedAt: map['updated_at'] != null 
+          ? DateTime.parse(map['updated_at'] as String)
           : null,
     );
   }
@@ -109,26 +77,82 @@ class Tenant with _$Tenant {
     return {
       'id': id,
       'name': name,
-      'subdomain': subdomain,
-      'plan': plan.name,
+      'domain': domain,
+      'logo': logo,
+      'phone': phone,
+      'email': email,
+      'address': address,
       'status': status.name,
-      'description': description,
-      'logo_url': logoUrl,
-      'primary_color': primaryColor,
-      'secondary_color': secondaryColor,
-      'created_at': createdAt.toIso8601String(),
-      'updated_at': updatedAt.toIso8601String(),
-      'trial_ends_at': trialEndsAt?.toIso8601String(),
-      'subscription_ends_at': subscriptionEndsAt?.toIso8601String(),
-      'max_users': maxUsers,
-      'max_branches': maxBranches,
-      'max_products': maxProducts,
-      'has_multi_location': hasMultiLocation != null ? (hasMultiLocation! ? 1 : 0) : null,
-      'has_delivery': hasDelivery != null ? (hasDelivery! ? 1 : 0) : null,
-      'has_online_ordering': hasOnlineOrdering != null ? (hasOnlineOrdering! ? 1 : 0) : null,
-      'has_analytics': hasAnalytics != null ? (hasAnalytics! ? 1 : 0) : null,
-      'has_inventory_management': hasInventoryManagement != null ? (hasInventoryManagement! ? 1 : 0) : null,
+      'subscription_plan': subscriptionPlan.name,
+      'subscription_expires': subscriptionExpires?.toIso8601String(),
       'settings': settings,
+      'created_at': createdAt?.toIso8601String(),
+      'updated_at': updatedAt?.toIso8601String(),
+    };
+  }
+}
+
+// Tenant Settings Model
+class TenantSettings {
+  final double taxRate;
+  final String currency;
+  final String timezone;
+  final String orderPrefix;
+  final bool enableOnlineOrdering;
+  final bool enableTableBooking;
+  final bool enableLoyaltyProgram;
+  final bool enableInventoryTracking;
+  final bool enableMultiBranch;
+  final Map<String, dynamic> paymentMethods;
+  final Map<String, dynamic> deliverySettings;
+  final Map<String, dynamic> printingSettings;
+
+  TenantSettings({
+    this.taxRate = 0.15,
+    this.currency = 'SAR',
+    this.timezone = 'Asia/Riyadh',
+    this.orderPrefix = 'ORD',
+    this.enableOnlineOrdering = true,
+    this.enableTableBooking = true,
+    this.enableLoyaltyProgram = true,
+    this.enableInventoryTracking = true,
+    this.enableMultiBranch = false,
+    this.paymentMethods = const {},
+    this.deliverySettings = const {},
+    this.printingSettings = const {},
+  });
+
+  factory TenantSettings.fromJson(Map<String, dynamic> json) {
+    return TenantSettings(
+      taxRate: (json['tax_rate'] as num?)?.toDouble() ?? 0.15,
+      currency: json['currency'] as String? ?? 'SAR',
+      timezone: json['timezone'] as String? ?? 'Asia/Riyadh',
+      orderPrefix: json['order_prefix'] as String? ?? 'ORD',
+      enableOnlineOrdering: json['enable_online_ordering'] as bool? ?? true,
+      enableTableBooking: json['enable_table_booking'] as bool? ?? true,
+      enableLoyaltyProgram: json['enable_loyalty_program'] as bool? ?? true,
+      enableInventoryTracking: json['enable_inventory_tracking'] as bool? ?? true,
+      enableMultiBranch: json['enable_multi_branch'] as bool? ?? false,
+      paymentMethods: json['payment_methods'] as Map<String, dynamic>? ?? {},
+      deliverySettings: json['delivery_settings'] as Map<String, dynamic>? ?? {},
+      printingSettings: json['printing_settings'] as Map<String, dynamic>? ?? {},
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'tax_rate': taxRate,
+      'currency': currency,
+      'timezone': timezone,
+      'order_prefix': orderPrefix,
+      'enable_online_ordering': enableOnlineOrdering,
+      'enable_table_booking': enableTableBooking,
+      'enable_loyalty_program': enableLoyaltyProgram,
+      'enable_inventory_tracking': enableInventoryTracking,
+      'enable_multi_branch': enableMultiBranch,
+      'payment_methods': paymentMethods,
+      'delivery_settings': deliverySettings,
+      'printing_settings': printingSettings,
     };
   }
 }

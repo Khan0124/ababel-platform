@@ -7,15 +7,15 @@ part 'category.g.dart';
 class Category with _$Category {
   const factory Category({
     required int id,
-    required int tenantId,
     required String name,
+    String? nameAr,
     String? description,
     String? imageUrl,
-    String? color,
-    required bool isActive,
-    int? sortOrder,
-    required DateTime createdAt,
-    required DateTime updatedAt,
+    int? parentId,
+    @Default(0) int displayOrder,
+    @Default(true) bool isActive,
+    DateTime? createdAt,
+    DateTime? updatedAt,
   }) = _Category;
 
   factory Category.fromJson(Map<String, dynamic> json) => _$CategoryFromJson(json);
@@ -23,30 +23,19 @@ class Category with _$Category {
   factory Category.fromMap(Map<String, dynamic> map) {
     return Category(
       id: map['id'] as int,
-      tenantId: map['tenant_id'] as int? ?? 1,
       name: map['name'] as String,
+      nameAr: map['name_ar'] as String?,
       description: map['description'] as String?,
       imageUrl: map['image_url'] as String?,
-      color: map['color'] as String?,
+      parentId: map['parent_id'] as int?,
+      displayOrder: map['display_order'] as int? ?? 0,
       isActive: (map['is_active'] as int? ?? 1) == 1,
-      sortOrder: map['sort_order'] as int?,
-      createdAt: DateTime.parse(map['created_at'] as String),
-      updatedAt: DateTime.parse(map['updated_at'] as String),
+      createdAt: map['created_at'] != null 
+          ? DateTime.parse(map['created_at'] as String)
+          : null,
+      updatedAt: map['updated_at'] != null 
+          ? DateTime.parse(map['updated_at'] as String)
+          : null,
     );
-  }
-
-  Map<String, dynamic> toMap() {
-    return {
-      'id': id,
-      'tenant_id': tenantId,
-      'name': name,
-      'description': description,
-      'image_url': imageUrl,
-      'color': color,
-      'is_active': isActive ? 1 : 0,
-      'sort_order': sortOrder,
-      'created_at': createdAt.toIso8601String(),
-      'updated_at': updatedAt.toIso8601String(),
-    };
   }
 }

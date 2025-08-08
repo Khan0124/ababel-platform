@@ -4,19 +4,19 @@ part 'user.freezed.dart';
 part 'user.g.dart';
 
 enum UserRole {
-  @JsonValue(0)
+  @JsonValue('super_admin')
+  superAdmin,
+  @JsonValue('admin')
   admin,
-  @JsonValue(1)
+  @JsonValue('manager')
   manager,
-  @JsonValue(2)
+  @JsonValue('cashier')
   cashier,
-  @JsonValue(3)
-  callCenter,
-  @JsonValue(4)
-  supervisor,
-  @JsonValue(5)
+  @JsonValue('kitchen')
+  kitchen,
+  @JsonValue('driver')
   driver,
-  @JsonValue(6)
+  @JsonValue('customer')
   customer,
 }
 
@@ -25,69 +25,86 @@ class User with _$User {
   const factory User({
     required int id,
     required int tenantId,
-    required String username,
-    String? email,
-    String? phone,
-    String? fullName,
-    String? avatarUrl,
-    int? restaurantId,
     int? branchId,
+    required String username,
+    required String email,
+    String? fullName,
+    String? phone,
     required UserRole role,
-    required bool isActive,
-    DateTime? lastLoginAt,
-    required DateTime createdAt,
-    required DateTime updatedAt,
-    int? failedLoginAttempts,
-    DateTime? lockedUntil,
+    String? avatar,
+    @Default(true) bool isActive,
+    @Default(false) bool twoFactorEnabled,
+    DateTime? lastLogin,
+    Map<String, dynamic>? permissions,
+    DateTime? createdAt,
+    DateTime? updatedAt,
   }) = _User;
-  
+
   factory User.fromJson(Map<String, dynamic> json) => _$UserFromJson(json);
-  
-  // Factory method for database mapping
+
   factory User.fromMap(Map<String, dynamic> map) {
     return User(
       id: map['id'] as int,
-      tenantId: map['tenant_id'] as int? ?? 1,
-      username: map['username'] as String,
-      email: map['email'] as String?,
-      phone: map['phone'] as String?,
-      fullName: map['full_name'] as String?,
-      avatarUrl: map['avatar_url'] as String?,
-      restaurantId: map['restaurant_id'] as int?,
+      tenantId: map['tenant_id'] as int,
       branchId: map['branch_id'] as int?,
-      role: UserRole.values[map['role'] as int? ?? 0],
+      username: map['username'] as String,
+      email: map['email'] as String,
+      fullName: map['full_name'] as String?,
+      phone: map['phone'] as String?,
+      role: UserRole.values.firstWhere(
+        (e) => e.name == map['role'],
+        orElse: () => UserRole.customer,
+      ),
+      avatar: map['avatar'] as String?,
       isActive: (map['is_active'] as int? ?? 1) == 1,
-      lastLoginAt: map['last_login_at'] != null 
-          ? DateTime.parse(map['last_login_at'] as String)
+      twoFactorEnabled: (map['two_factor_enabled'] as int? ?? 0) == 1,
+      lastLogin: map['last_login'] != null 
+          ? DateTime.parse(map['last_login'] as String)
           : null,
-      createdAt: DateTime.parse(map['created_at'] as String),
-      updatedAt: DateTime.parse(map['updated_at'] as String),
-      failedLoginAttempts: map['failed_login_attempts'] as int? ?? 0,
-      lockedUntil: map['locked_until'] != null 
-          ? DateTime.parse(map['locked_until'] as String)
+      permissions: map['permissions'] as Map<String, dynamic>?,
+      createdAt: map['created_at'] != null 
+          ? DateTime.parse(map['created_at'] as String)
+          : null,
+      updatedAt: map['updated_at'] != null 
+          ? DateTime.parse(map['updated_at'] as String)
           : null,
     );
   }
-  
-  // Method to convert to database map
-  Map<String, dynamic> toMap() {
-    return {
-      'id': id,
-      'tenant_id': tenantId,
-      'username': username,
-      'email': email,
-      'phone': phone,
-      'full_name': fullName,
-      'avatar_url': avatarUrl,
-      'restaurant_id': restaurantId,
-      'branch_id': branchId,
-      'role': role.index,
-      'is_active': isActive ? 1 : 0,
-      'last_login_at': lastLoginAt?.toIso8601String(),
-      'created_at': createdAt.toIso8601String(),
-      'updated_at': updatedAt.toIso8601String(),
-      'failed_login_attempts': failedLoginAttempts ?? 0,
-      'locked_until': lockedUntil?.toIso8601String(),
-    };
+}
+
+// Auth Result Model
+class AuthResult {
+  final bool success;
+  final User? user;
+  final String? token;
+  final String? refreshToken;
+  final String? message;
+
+  AuthResult({
+    required this.success,
+    this.user,
+    this.token,
+    this.refreshToken,
+    this.message,
+  });
+
+  factory AuthResult.success({
+    required User user,
+    required String token,
+    String? refreshToken,
+  }) {
+    return AuthResult(
+      success: true,
+      user: user,
+      token: token,
+      refreshToken: refreshToken,
+    );
+  }
+
+  factory AuthResult.failure({required String message}) {
+    return AuthResult(
+      success: false,
+      message: message,
+    );
   }
 }

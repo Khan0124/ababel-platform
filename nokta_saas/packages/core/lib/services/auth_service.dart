@@ -35,7 +35,7 @@ class AuthService {
       _dio.options.headers['X-Tenant-ID'] = tenantId;
       
       return AuthResult.success(user: user, token: token);
-    } on DioError catch (e) {
+    } on DioException catch (e) {
       return AuthResult.failure(
         message: e.response?.data['message'] ?? 'Login failed',
       );

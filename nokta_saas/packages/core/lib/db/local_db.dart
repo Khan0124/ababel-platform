@@ -1,260 +1,325 @@
+// nokta_pos main database file
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
-import 'package:crypto/crypto.dart';
-import 'dart:convert';
-
 import '../models/product.dart';
-import '../models/user.dart';
-import '../models/cart_item.dart';
-import '../services/security_service.dart';
+import '../models/order.dart';
+import '../models/category.dart';
 
 class LocalDB {
-  static final LocalDB _instance = LocalDB._internal();
-  factory LocalDB() => _instance;
-  LocalDB._internal();
+  static Database? _database;
+  static LocalDB? _instance;
 
-  Database? _db;
+  LocalDB._();
 
-  Future<Database> get db async {
-    _db ??= await _init();
-    return _db!;
+  static LocalDB get instance => _instance ??= LocalDB._();
+
+  static Future<void> initialize() async {
+    _instance ??= LocalDB._();
+    await _instance!._initDatabase();
   }
 
-  Future<Database> _init() async {
+  Future<Database> get database async {
+    _database ??= await _initDatabase();
+    return _database!;
+  }
+
+  Future<Database> _initDatabase() async {
     final dbPath = await getDatabasesPath();
     final path = join(dbPath, 'nokta_pos.db');
-
-    return openDatabase(
+    
+    return await openDatabase(
       path,
       version: 1,
-      onCreate: (db, version) async {
-        await db.execute('''
-          CREATE TABLE products(
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            price INTEGER NOT NULL
-          );
-        ''');
-
-        await db.execute('''
-          CREATE TABLE users(
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            username TEXT UNIQUE NOT NULL,
-            password_hash TEXT NOT NULL,
-            restaurant_id INTEGER,
-            branch_id INTEGER,
-            tenant_id INTEGER NOT NULL DEFAULT 1,
-            role INTEGER NOT NULL DEFAULT 0,
-            is_active INTEGER NOT NULL DEFAULT 1,
-            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            last_login_at TEXT,
-            failed_login_attempts INTEGER NOT NULL DEFAULT 0,
-            locked_until TEXT
-          );
-        ''');
-
-        // Create secure admin user
-        final adminPassword = SecurityService.hashPassword('Admin@2024#Secure');
-        await db.insert('users', {
-          'username': 'admin',
-          'password_hash': adminPassword,
-          'restaurant_id': 1,
-          'branch_id': 1,
-          'tenant_id': 1,
-          'role': 0, // Admin role
-          'is_active': 1,
-          'created_at': DateTime.now().toIso8601String(),
-          'updated_at': DateTime.now().toIso8601String(),
-        });
-
-        await db.execute('''
-          CREATE TABLE orders(
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            total INTEGER NOT NULL,
-            order_type TEXT NOT NULL,
-            payment_method TEXT NOT NULL,
-            customer_name TEXT,
-            customer_phone TEXT,
-            customer_address TEXT,
-            created_at TEXT NOT NULL
-          );
-        ''');
-
-        await db.execute('''
-          CREATE TABLE order_items(
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            order_id INTEGER NOT NULL,
-            product_id INTEGER NOT NULL,
-            qty INTEGER NOT NULL,
-            price INTEGER NOT NULL,
-            FOREIGN KEY(order_id) REFERENCES orders(id) ON DELETE CASCADE,
-            FOREIGN KEY(product_id) REFERENCES products(id)
-          );
-        ''');
-      },
-      onOpen: (db) async {
-        await db.execute('PRAGMA foreign_keys = ON');
-      },
+      onCreate: _onCreate,
+      onUpgrade: _onUpgrade,
     );
   }
 
-  Future<List<Product>> allProducts() async {
-    final d = await db;
-    final maps = await d.query('products', orderBy: 'id DESC');
-    return maps.map((m) => Product.fromMap(m)).toList();
+  Future<void> _onCreate(Database db, int version) async {
+    // Products table
+    await db.execute('''
+      CREATE TABLE products (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        description TEXT,
+        price REAL NOT NULL,
+        categoryId INTEGER,
+        imageUrl TEXT,
+        barcode TEXT,
+        sku TEXT,
+        isAvailable INTEGER DEFAULT 1,
+        stockQuantity INTEGER DEFAULT 0,
+        createdAt TEXT,
+        updatedAt TEXT
+      )
+    ''');
+
+    // Categories table
+    await db.execute('''
+      CREATE TABLE categories (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        description TEXT,
+        parentId INTEGER,
+        sortOrder INTEGER DEFAULT 0,
+        isActive INTEGER DEFAULT 1,
+        createdAt TEXT,
+        updatedAt TEXT
+      )
+    ''');
+
+    // Orders table
+    await db.execute('''
+      CREATE TABLE orders (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        orderNumber TEXT NOT NULL,
+        status TEXT NOT NULL,
+        orderType TEXT NOT NULL,
+        subtotal REAL NOT NULL,
+        tax REAL DEFAULT 0,
+        discount REAL DEFAULT 0,
+        deliveryFee REAL DEFAULT 0,
+        total REAL NOT NULL,
+        paymentMethod TEXT,
+        paymentStatus TEXT,
+        customerName TEXT,
+        customerPhone TEXT,
+        customerEmail TEXT,
+        customerAddress TEXT,
+        tableNumber TEXT,
+        specialInstructions TEXT,
+        createdAt TEXT NOT NULL,
+        updatedAt TEXT,
+        syncStatus TEXT DEFAULT 'pending'
+      )
+    ''');
+
+    // Order items table
+    await db.execute('''
+      CREATE TABLE order_items (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        orderId INTEGER NOT NULL,
+        productId INTEGER NOT NULL,
+        productName TEXT NOT NULL,
+        quantity INTEGER NOT NULL,
+        unitPrice REAL NOT NULL,
+        totalPrice REAL NOT NULL,
+        notes TEXT,
+        FOREIGN KEY (orderId) REFERENCES orders (id),
+        FOREIGN KEY (productId) REFERENCES products (id)
+      )
+    ''');
+
+    // Settings table
+    await db.execute('''
+      CREATE TABLE settings (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL
+      )
+    ''');
   }
 
-  Future<int> insertProduct(Product p) async {
-    final d = await db;
-    final map = p.toMap();
-    map.remove('id');
-    return d.insert('products', map);
+  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    // Handle database upgrades
   }
 
-  Future<int> updateProduct(Product p) async {
-    final d = await db;
-    return d.update('products', p.toMap(), where: 'id = ?', whereArgs: [p.id]);
+  // Product operations
+  Future<List<Product>> getProducts() async {
+    final db = await database;
+    final maps = await db.query('products', where: 'isAvailable = ?', whereArgs: [1]);
+    return maps.map((map) => _productFromMap(map)).toList();
+  }
+
+  Future<Product?> getProduct(int id) async {
+    final db = await database;
+    final maps = await db.query('products', where: 'id = ?', whereArgs: [id]);
+    if (maps.isEmpty) return null;
+    return _productFromMap(maps.first);
+  }
+
+  Future<int> insertProduct(Product product) async {
+    final db = await database;
+    return await db.insert('products', _productToMap(product));
+  }
+
+  Future<int> updateProduct(Product product) async {
+    final db = await database;
+    return await db.update(
+      'products',
+      _productToMap(product),
+      where: 'id = ?',
+      whereArgs: [product.id],
+    );
   }
 
   Future<int> deleteProduct(int id) async {
-    final d = await db;
-    return d.delete('products', where: 'id = ?', whereArgs: [id]);
+    final db = await database;
+    return await db.delete('products', where: 'id = ?', whereArgs: [id]);
   }
 
-  Future<User?> login(String username, String password) async {
-    final d = await db;
-    
-    // Validate and sanitize input
-    final cleanUsername = SecurityService.sanitizeInput(username.trim());
-    if (!SecurityService.validateInput(cleanUsername) || 
-        !SecurityService.validateInput(password)) {
-      return null;
+  // Order operations
+  Future<List<Order>> getOrders({String? status}) async {
+    final db = await database;
+    if (status != null) {
+      final maps = await db.query('orders', where: 'status = ?', whereArgs: [status]);
+      return maps.map((map) => _orderFromMap(map)).toList();
     }
-
-    // Check if user exists and is active
-    final res = await d.query(
-      'users',
-      where: 'username = ? AND is_active = 1',
-      whereArgs: [cleanUsername],
-      limit: 1,
-    );
-    
-    if (res.isEmpty) return null;
-    
-    final userMap = res.first;
-    
-    // Check if account is locked
-    if (userMap['locked_until'] != null) {
-      final lockedUntil = DateTime.parse(userMap['locked_until'] as String);
-      if (DateTime.now().isBefore(lockedUntil)) {
-        return null; // Account is locked
-      }
-    }
-
-    // Verify password
-    final storedHash = userMap['password_hash'] as String;
-    if (!SecurityService.verifyPassword(password, storedHash)) {
-      // Increment failed login attempts
-      await _incrementFailedLogins(userMap['id'] as int);
-      return null;
-    }
-
-    // Reset failed login attempts and update last login
-    await _resetFailedLogins(userMap['id'] as int);
-    
-    return User.fromMap(userMap);
+    final maps = await db.query('orders', orderBy: 'createdAt DESC');
+    return maps.map((map) => _orderFromMap(map)).toList();
   }
 
-  Future<void> _incrementFailedLogins(int userId) async {
-    final d = await db;
-    
-    // Get current failed attempts
-    final res = await d.query(
-      'users',
-      columns: ['failed_login_attempts'],
+  Future<Order?> getOrder(int id) async {
+    final db = await database;
+    final maps = await db.query('orders', where: 'id = ?', whereArgs: [id]);
+    if (maps.isEmpty) return null;
+    return _orderFromMap(maps.first);
+  }
+
+  Future<int> insertOrder(Order order) async {
+    final db = await database;
+    return await db.insert('orders', _orderToMap(order));
+  }
+
+  Future<int> updateOrder(Order order) async {
+    final db = await database;
+    return await db.update(
+      'orders',
+      _orderToMap(order),
       where: 'id = ?',
-      whereArgs: [userId],
-    );
-    
-    if (res.isNotEmpty) {
-      final currentAttempts = res.first['failed_login_attempts'] as int;
-      final newAttempts = currentAttempts + 1;
-      
-      // Lock account if too many failed attempts (5 attempts)
-      String? lockedUntil;
-      if (newAttempts >= 5) {
-        lockedUntil = DateTime.now().add(Duration(minutes: 30)).toIso8601String();
-      }
-      
-      await d.update(
-        'users',
-        {
-          'failed_login_attempts': newAttempts,
-          'locked_until': lockedUntil,
-          'updated_at': DateTime.now().toIso8601String(),
-        },
-        where: 'id = ?',
-        whereArgs: [userId],
-      );
-    }
-  }
-
-  Future<void> _resetFailedLogins(int userId) async {
-    final d = await db;
-    await d.update(
-      'users',
-      {
-        'failed_login_attempts': 0,
-        'locked_until': null,
-        'last_login_at': DateTime.now().toIso8601String(),
-        'updated_at': DateTime.now().toIso8601String(),
-      },
-      where: 'id = ?',
-      whereArgs: [userId],
+      whereArgs: [order.id],
     );
   }
 
-  Future<int> createOrder({
-    required int total,
-    required List<CartItem> cart,
-    required String orderType,
-    required String paymentMethod,
-    String? customerName,
-    String? customerPhone,
-    String? customerAddress,
-  }) async {
-    final d = await db;
-    final orderId = await d.insert('orders', {
-      'total': total,
-      'order_type': orderType,
-      'payment_method': paymentMethod,
-      'customer_name': customerName,
-      'customer_phone': customerPhone,
-      'customer_address': customerAddress,
-      'created_at': DateTime.now().toIso8601String(),
-    });
-
-    for (final ci in cart) {
-      await d.insert('order_items', {
-        'order_id': orderId,
-        'product_id': ci.product.id,
-        'qty': ci.quantity,
-        'price': ci.product.price,
-      });
-    }
-
-    return orderId;
+  // Category operations
+  Future<List<Category>> getCategories() async {
+    final db = await database;
+    final maps = await db.query('categories', where: 'isActive = ?', whereArgs: [1]);
+    return maps.map((map) => _categoryFromMap(map)).toList();
   }
 
-  Future<List<Map<String, Object?>>> allOrders() async {
-    final d = await db;
-    return d.query('orders', orderBy: 'id DESC');
+  // Helper methods for mapping
+  Product _productFromMap(Map<String, dynamic> map) {
+    return Product(
+      id: map['id'] as int?,
+      name: map['name'] as String,
+      description: map['description'] as String?,
+      price: map['price'] as double,
+      categoryId: map['categoryId'] as int?,
+      imageUrl: map['imageUrl'] as String?,
+      barcode: map['barcode'] as String?,
+      sku: map['sku'] as String?,
+      isAvailable: map['isAvailable'] == 1,
+      stockQuantity: map['stockQuantity'] as int?,
+      tenantId: 1, // Default tenant
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+    );
   }
 
-  Future<void> deleteDatabaseFile() async {
-    final dbPath = await getDatabasesPath();
-    final path = join(dbPath, 'nokta_pos.db');
-    await deleteDatabase(path);
+  Map<String, dynamic> _productToMap(Product product) {
+    return {
+      'id': product.id,
+      'name': product.name,
+      'description': product.description,
+      'price': product.price,
+      'categoryId': product.categoryId,
+      'imageUrl': product.imageUrl,
+      'barcode': product.barcode,
+      'sku': product.sku,
+      'isAvailable': product.isAvailable ? 1 : 0,
+      'stockQuantity': product.stockQuantity,
+      'createdAt': product.createdAt.toIso8601String(),
+      'updatedAt': product.updatedAt.toIso8601String(),
+    };
+  }
+
+  Order _orderFromMap(Map<String, dynamic> map) {
+    return Order(
+      id: map['id'] as int?,
+      orderNumber: map['orderNumber'] as String,
+      status: OrderStatus.values.firstWhere(
+        (e) => e.name == map['status'],
+        orElse: () => OrderStatus.pending,
+      ),
+      orderType: OrderType.values.firstWhere(
+        (e) => e.name == map['orderType'],
+        orElse: () => OrderType.dineIn,
+      ),
+      subtotal: map['subtotal'] as double,
+      tax: map['tax'] as double? ?? 0,
+      discount: map['discount'] as double? ?? 0,
+      deliveryFee: map['deliveryFee'] as double? ?? 0,
+      total: map['total'] as double,
+      paymentMethod: map['paymentMethod'] as String?,
+      paymentStatus: map['paymentStatus'] as String?,
+      customerName: map['customerName'] as String?,
+      customerPhone: map['customerPhone'] as String?,
+      customerEmail: map['customerEmail'] as String?,
+      customerAddress: map['customerAddress'] as String?,
+      tableNumber: map['tableNumber'] as String?,
+      specialInstructions: map['specialInstructions'] as String?,
+      createdAt: DateTime.parse(map['createdAt'] as String),
+      updatedAt: map['updatedAt'] != null 
+        ? DateTime.parse(map['updatedAt'] as String)
+        : null,
+      items: [], // Load separately
+      tenantId: 1,
+      branchId: 1,
+    );
+  }
+
+  Map<String, dynamic> _orderToMap(Order order) {
+    return {
+      'id': order.id,
+      'orderNumber': order.orderNumber,
+      'status': order.status.name,
+      'orderType': order.orderType.name,
+      'subtotal': order.subtotal,
+      'tax': order.tax,
+      'discount': order.discount,
+      'deliveryFee': order.deliveryFee,
+      'total': order.total,
+      'paymentMethod': order.paymentMethod,
+      'paymentStatus': order.paymentStatus,
+      'customerName': order.customerName,
+      'customerPhone': order.customerPhone,
+      'customerEmail': order.customerEmail,
+      'customerAddress': order.customerAddress,
+      'tableNumber': order.tableNumber,
+      'specialInstructions': order.specialInstructions,
+      'createdAt': order.createdAt.toIso8601String(),
+      'updatedAt': order.updatedAt.toIso8601String(),
+    };
+  }
+
+  Category _categoryFromMap(Map<String, dynamic> map) {
+    return Category(
+      id: map['id'] as int?,
+      name: map['name'] as String,
+      description: map['description'] as String?,
+      parentId: map['parentId'] as int?,
+      sortOrder: map['sortOrder'] as int? ?? 0,
+      isActive: map['isActive'] == 1,
+      tenantId: 1,
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+    );
+  }
+
+  // Clear all data
+  Future<void> clearAllData() async {
+    final db = await database;
+    await db.delete('products');
+    await db.delete('categories');
+    await db.delete('orders');
+    await db.delete('order_items');
+    await db.delete('settings');
+  }
+
+  // Close database
+  Future<void> close() async {
+    final db = await database;
+    await db.close();
+    _database = null;
   }
 }
